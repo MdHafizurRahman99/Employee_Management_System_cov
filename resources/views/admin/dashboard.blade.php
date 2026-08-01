@@ -3,327 +3,357 @@
     Dashboard
 @endsection
 
-{{-- @section('content')
-    <div class="container-fluid">
+@section('css')
+    <style>
+        .dashboard-availability-card {
+            border: 1px solid rgba(23, 53, 61, 0.1);
+            border-radius: 1.5rem;
+            background:
+                radial-gradient(circle at top right, rgba(23, 125, 120, 0.15), transparent 30%),
+                linear-gradient(135deg, #fcfaf7 0%, #f5fbfb 58%, #ffffff 100%);
+            box-shadow: 0 18px 40px rgba(17, 39, 46, 0.07);
+        }
 
-        <!-- Page Heading -->
+        .dashboard-availability-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+            gap: 0.85rem;
+        }
+
+        .dashboard-availability-summary-card {
+            border: 1px solid rgba(23, 53, 61, 0.08);
+            border-radius: 1.1rem;
+            background: rgba(255, 255, 255, 0.88);
+            padding: 0.9rem 1rem;
+        }
+
+        .dashboard-availability-summary-label {
+            color: #5d7580;
+            font-size: 0.74rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .dashboard-availability-summary-value {
+            color: #17353d;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 1.7rem;
+            line-height: 1;
+            margin-top: 0.55rem;
+        }
+
+        .dashboard-availability-strip {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+            gap: 0.75rem;
+        }
+
+        .dashboard-availability-day {
+            border: 1px solid rgba(23, 53, 61, 0.08);
+            border-radius: 1rem;
+            background: rgba(255, 255, 255, 0.92);
+            padding: 0.8rem 0.9rem;
+        }
+
+        .dashboard-availability-day-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.65rem;
+        }
+
+        .dashboard-availability-day-name {
+            color: #17353d;
+            font-weight: 800;
+        }
+
+        .dashboard-availability-day-status {
+            border-radius: 999px;
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            padding: 0.28rem 0.55rem;
+            text-transform: uppercase;
+        }
+
+        .dashboard-availability-day-status.status-success {
+            background: rgba(23, 125, 120, 0.12);
+            color: #0d5b57;
+        }
+
+        .dashboard-availability-day-status.status-danger {
+            background: rgba(170, 74, 58, 0.12);
+            color: #954433;
+        }
+
+        .dashboard-availability-day-status.status-primary {
+            background: rgba(78, 115, 223, 0.12);
+            color: #3759b9;
+        }
+
+        .dashboard-availability-day-status.status-muted {
+            background: rgba(93, 117, 128, 0.12);
+            color: #5d7580;
+        }
+
+        .dashboard-availability-note {
+            color: #5d7580;
+            font-size: 0.82rem;
+            line-height: 1.5;
+        }
+
+        .dashboard-availability-rule {
+            color: #17353d;
+            font-size: 0.78rem;
+            font-weight: 700;
+            line-height: 1.45;
+        }
+
+        .dashboard-availability-rule small {
+            color: #5d7580;
+            display: block;
+            font-size: 0.7rem;
+            font-weight: 700;
+            margin-top: 0.12rem;
+        }
+    </style>
+@endsection
+
+@section('content')
+    <div class="container-fluid">
         <div class="d-sm-flex align-items-center justify-content-between mb-4">
             <h1 class="h3 mb-0 text-gray-800">Dashboard</h1>
-            <a href="#" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm"><i
-                    class="fas fa-download fa-sm text-white-50"></i> Generate Report</a>
+            <div class="text-right">
+                <span class="badge badge-primary px-3 py-2 text-uppercase">
+                    {{ auth()->user()->auth_source === 'odoo' ? 'Connected Account' : 'Standard Account' }}
+                </span>
+            </div>
         </div>
 
-        <!-- Content Row -->
         <div class="row">
+            @if ($odooShiftError)
+                <div class="col-12">
+                    <div class="alert alert-warning">
+                        {{ $odooShiftError }}
+                    </div>
+                </div>
+            @endif
 
-            <!-- Earnings (Monthly) Card Example -->
-            <div class="col-xl-3 col-md-6 mb-4">
-                <div class="card border-left-primary shadow h-100 py-2">
+            <div class="col-lg-8 mb-4">
+                <div class="card shadow h-100">
                     <div class="card-body">
-                        <div class="row no-gutters align-items-center">
-                            <div class="col mr-2">
-                                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
-                                    Earnings (Monthly)</div>
-                                <div class="h5 mb-0 font-weight-bold text-gray-800">$40,000</div>
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <div>
+                                <h5 class="mb-1">Welcome back, {{ auth()->user()->name }}</h5>
+                                <p class="mb-0 text-muted">
+                                    You are signed in to the employee portal and your session is active.
+                                </p>
                             </div>
-                            <div class="col-auto">
-                                <i class="fas fa-calendar fa-2x text-gray-300"></i>
-                            </div>
+                            <i class="fas fa-user-shield fa-2x text-primary"></i>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-borderless mb-0">
+                                <tbody>
+                                    <tr>
+                                        <th class="text-muted pl-0" style="width: 220px;">Email</th>
+                                        <td>{{ auth()->user()->email }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="text-muted pl-0">Auth Source</th>
+                                        <td>{{ ucfirst(auth()->user()->auth_source ?? 'local') }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="text-muted pl-0">Odoo User ID</th>
+                                        <td>{{ auth()->user()->odoo_user_id ?? 'Not linked' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="text-muted pl-0">Odoo Employee ID</th>
+                                        <td>{{ auth()->user()->odoo_employee_id ?? 'Not linked' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="text-muted pl-0">Odoo Resource ID</th>
+                                        <td>{{ auth()->user()->odoo_resource_id ?? 'Not linked' }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="text-muted pl-0">Last Sync</th>
+                                        <td>
+                                            {{ optional(auth()->user()->odoo_last_synced_at)->format('M d, Y h:i A') ?? 'Not yet synced' }}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Earnings (Monthly) Card Example -->
-            <div class="col-xl-3 col-md-6 mb-4">
-                <div class="card border-left-success shadow h-100 py-2">
+            <div class="col-lg-4 mb-4">
+                <div class="card shadow h-100">
                     <div class="card-body">
-                        <div class="row no-gutters align-items-center">
-                            <div class="col mr-2">
-                                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                    Earnings (Annual)</div>
-                                <div class="h5 mb-0 font-weight-bold text-gray-800">$215,000</div>
+                        <h6 class="text-primary font-weight-bold text-uppercase mb-3">Today</h6>
+
+                        @if ($todayShift)
+                            <div class="border-left-success pl-3 mb-4">
+                                <div class="font-weight-bold">{{ $todayShift['title'] }}</div>
+                                <div class="text-muted small mb-2">{{ $todayShift['date_label'] }}</div>
+                                <div class="mb-1">{{ $todayShift['start_label'] }} - {{ $todayShift['end_label'] }}</div>
+                                <div class="small text-muted">{{ $todayShift['role'] }} | {{ $todayShift['company'] }}</div>
                             </div>
-                            <div class="col-auto">
-                                <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
-                            </div>
+                        @elseif (auth()->user()->odoo_employee_id || auth()->user()->odoo_resource_id)
+                            <p class="text-muted">No shift is scheduled for today.</p>
+                        @else
+                            <p class="text-muted">Shift information is not available for this account yet.</p>
+                        @endif
+
+                        <div class="d-flex flex-wrap">
+                            <a href="{{ route('employee.shifts.index') }}" class="btn btn-primary btn-sm mr-2 mb-2">
+                                View All Shifts
+                            </a>
+                            @if (auth()->user()->isOdooUser())
+                                <a href="{{ route('employee.availability.index') }}"
+                                    class="btn btn-outline-success btn-sm mb-2 mr-2">
+                                    Manage Availability
+                                </a>
+                            @endif
+                            @if (auth()->user()->isOdooUser())
+                                <a href="{{ route('employee.attendance.index') }}"
+                                    class="btn btn-outline-primary btn-sm mb-2">
+                                    View Attendance
+                                </a>
+                                <a href="{{ route('employee.leave.index') }}"
+                                    class="btn btn-outline-secondary btn-sm mb-2 ml-sm-2">
+                                    Request Leave
+                                </a>
+                            @endif
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Earnings (Monthly) Card Example -->
-            <div class="col-xl-3 col-md-6 mb-4">
-                <div class="card border-left-info shadow h-100 py-2">
-                    <div class="card-body">
-                        <div class="row no-gutters align-items-center">
-                            <div class="col mr-2">
-                                <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Tasks
+        @if (auth()->user()->isOdooUser())
+            <div class="row">
+                <div class="col-12 mb-4">
+                    <div class="card dashboard-availability-card">
+                        <div class="card-body p-4">
+                            <div class="d-flex flex-wrap justify-content-between align-items-start mb-4">
+                                <div class="mb-3 mb-lg-0">
+                                    <div class="text-xs font-weight-bold text-success text-uppercase mb-2">Weekly Availability</div>
+                                    <h4 class="mb-2 text-gray-900">Keep your recurring work pattern clear for the planning team.</h4>
+                                    <p class="mb-0 text-muted">
+                                        Use weekly availability for your normal recurring pattern, then use leave requests for one-off absences.
+                                    </p>
                                 </div>
-                                <div class="row no-gutters align-items-center">
-                                    <div class="col-auto">
-                                        <div class="h5 mb-0 mr-3 font-weight-bold text-gray-800">50%</div>
+                                <a href="{{ route('employee.availability.index') }}" class="btn btn-primary btn-sm">
+                                    Open Availability Planner
+                                </a>
+                            </div>
+
+                            @if ($odooAvailabilityError)
+                                <div class="alert alert-warning mb-0">
+                                    {{ $odooAvailabilityError }}
+                                </div>
+                            @elseif (! $hasAvailabilityIdentity)
+                                <p class="text-muted mb-0">Availability will appear here once this account is linked to an Odoo employee record.</p>
+                            @else
+                                <div class="dashboard-availability-summary mb-4">
+                                    <div class="dashboard-availability-summary-card">
+                                        <div class="dashboard-availability-summary-label">Configured Days</div>
+                                        <div class="dashboard-availability-summary-value">{{ $availabilitySummary['configured_days'] }}</div>
                                     </div>
-                                    <div class="col">
-                                        <div class="progress progress-sm mr-2">
-                                            <div class="progress-bar bg-info" role="progressbar" style="width: 50%"
-                                                aria-valuenow="50" aria-valuemin="0" aria-valuemax="100"></div>
+                                    <div class="dashboard-availability-summary-card">
+                                        <div class="dashboard-availability-summary-label">Total Rules</div>
+                                        <div class="dashboard-availability-summary-value">{{ $availabilitySummary['total_rules'] }}</div>
+                                    </div>
+                                    <div class="dashboard-availability-summary-card">
+                                        <div class="dashboard-availability-summary-label">Open Windows</div>
+                                        <div class="dashboard-availability-summary-value">{{ $availabilitySummary['available_rules'] }}</div>
+                                    </div>
+                                    <div class="dashboard-availability-summary-card">
+                                        <div class="dashboard-availability-summary-label">Blocked Windows</div>
+                                        <div class="dashboard-availability-summary-value">{{ $availabilitySummary['unavailable_rules'] }}</div>
+                                    </div>
+                                </div>
+
+                                <div class="dashboard-availability-strip">
+                                    @foreach ($availabilityDays as $day)
+                                        <div class="dashboard-availability-day">
+                                            <div class="dashboard-availability-day-head">
+                                                <span class="dashboard-availability-day-name">{{ $day['short_label'] }}</span>
+                                                <span class="dashboard-availability-day-status status-{{ $day['status_class'] }}">
+                                                    {{ $day['entry_count'] }}
+                                                </span>
+                                            </div>
+
+                                            @if ($day['has_rules'])
+                                                @foreach (array_slice($day['entries'], 0, 2) as $entry)
+                                                    <div class="dashboard-availability-rule">
+                                                        {{ $entry['availability_label'] }}
+                                                        <small>{{ $entry['time_label'] }}</small>
+                                                    </div>
+                                                @endforeach
+
+                                                @if ($day['entry_count'] > 2)
+                                                    <div class="dashboard-availability-note mt-2">
+                                                        +{{ $day['entry_count'] - 2 }} more rule{{ $day['entry_count'] - 2 === 1 ? '' : 's' }}
+                                                    </div>
+                                                @endif
+                                            @else
+                                                <div class="dashboard-availability-note">No recurring rule yet.</div>
+                                            @endif
                                         </div>
-                                    </div>
+                                    @endforeach
                                 </div>
-                            </div>
-                            <div class="col-auto">
-                                <i class="fas fa-clipboard-list fa-2x text-gray-300"></i>
-                            </div>
+                            @endif
                         </div>
                     </div>
                 </div>
             </div>
+        @endif
 
-            <!-- Pending Requests Card Example -->
-            <div class="col-xl-3 col-md-6 mb-4">
-                <div class="card border-left-warning shadow h-100 py-2">
-                    <div class="card-body">
-                        <div class="row no-gutters align-items-center">
-                            <div class="col mr-2">
-                                <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                                    Pending Requests</div>
-                                <div class="h5 mb-0 font-weight-bold text-gray-800">18</div>
-                            </div>
-                            <div class="col-auto">
-                                <i class="fas fa-comments fa-2x text-gray-300"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Content Row -->
-
-        <div class="row">
-
-            <!-- Area Chart -->
-            <div class="col-xl-8 col-lg-7">
-                <div class="card shadow mb-4">
-                    <!-- Card Header - Dropdown -->
-                    <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                        <h6 class="m-0 font-weight-bold text-primary">Earnings Overview</h6>
-                        <div class="dropdown no-arrow">
-                            <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
-                                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+        @if (!empty($upcomingShifts))
+            <div class="row">
+                <div class="col-12">
+                    <div class="card shadow">
+                        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                            <h6 class="m-0 font-weight-bold text-primary">Upcoming Shifts</h6>
+                            <a href="{{ route('employee.shifts.index') }}" class="btn btn-outline-primary btn-sm">
+                                View Shift List
                             </a>
-                            <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in"
-                                aria-labelledby="dropdownMenuLink">
-                                <div class="dropdown-header">Dropdown Header:</div>
-                                <a class="dropdown-item" href="#">Action</a>
-                                <a class="dropdown-item" href="#">Another action</a>
-                                <div class="dropdown-divider"></div>
-                                <a class="dropdown-item" href="#">Something else here</a>
-                            </div>
                         </div>
-                    </div>
-                    <!-- Card Body -->
-                    <div class="card-body">
-                        <div class="chart-area">
-                            <canvas id="myAreaChart"></canvas>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Time</th>
+                                            <th>Role</th>
+                                            <th>Company</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach ($upcomingShifts as $shift)
+                                            <tr class="{{ $shift['is_today'] ? 'table-success' : '' }}">
+                                                <td>
+                                                    <div class="font-weight-bold">{{ $shift['date_label'] }}</div>
+                                                    <div class="small text-muted">{{ $shift['title'] }}</div>
+                                                </td>
+                                                <td>{{ $shift['start_label'] }} - {{ $shift['end_label'] }}</td>
+                                                <td>{{ $shift['role'] }}</td>
+                                                <td>{{ $shift['company'] }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <!-- Pie Chart -->
-            <div class="col-xl-4 col-lg-5">
-                <div class="card shadow mb-4">
-                    <!-- Card Header - Dropdown -->
-                    <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                        <h6 class="m-0 font-weight-bold text-primary">Revenue Sources</h6>
-                        <div class="dropdown no-arrow">
-                            <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
-                                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
-                            </a>
-                            <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in"
-                                aria-labelledby="dropdownMenuLink">
-                                <div class="dropdown-header">Dropdown Header:</div>
-                                <a class="dropdown-item" href="#">Action</a>
-                                <a class="dropdown-item" href="#">Another action</a>
-                                <div class="dropdown-divider"></div>
-                                <a class="dropdown-item" href="#">Something else here</a>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Card Body -->
-                    <div class="card-body">
-                        <div class="chart-pie pt-4 pb-2">
-                            <canvas id="myPieChart"></canvas>
-                        </div>
-                        <div class="mt-4 text-center small">
-                            <span class="mr-2">
-                                <i class="fas fa-circle text-primary"></i> Direct
-                            </span>
-                            <span class="mr-2">
-                                <i class="fas fa-circle text-success"></i> Social
-                            </span>
-                            <span class="mr-2">
-                                <i class="fas fa-circle text-info"></i> Referral
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Content Row -->
-        <div class="row">
-
-            <!-- Content Column -->
-            <div class="col-lg-6 mb-4">
-
-                <!-- Project Card Example -->
-                <div class="card shadow mb-4">
-                    <div class="card-header py-3">
-                        <h6 class="m-0 font-weight-bold text-primary">Projects</h6>
-                    </div>
-                    <div class="card-body">
-                        <h4 class="small font-weight-bold">Server Migration <span class="float-right">20%</span></h4>
-                        <div class="progress mb-4">
-                            <div class="progress-bar bg-danger" role="progressbar" style="width: 20%" aria-valuenow="20"
-                                aria-valuemin="0" aria-valuemax="100"></div>
-                        </div>
-                        <h4 class="small font-weight-bold">Sales Tracking <span class="float-right">40%</span></h4>
-                        <div class="progress mb-4">
-                            <div class="progress-bar bg-warning" role="progressbar" style="width: 40%"
-                                aria-valuenow="40" aria-valuemin="0" aria-valuemax="100"></div>
-                        </div>
-                        <h4 class="small font-weight-bold">Customer Database <span class="float-right">60%</span></h4>
-                        <div class="progress mb-4">
-                            <div class="progress-bar" role="progressbar" style="width: 60%" aria-valuenow="60"
-                                aria-valuemin="0" aria-valuemax="100"></div>
-                        </div>
-                        <h4 class="small font-weight-bold">Payout Details <span class="float-right">80%</span></h4>
-                        <div class="progress mb-4">
-                            <div class="progress-bar bg-info" role="progressbar" style="width: 80%" aria-valuenow="80"
-                                aria-valuemin="0" aria-valuemax="100"></div>
-                        </div>
-                        <h4 class="small font-weight-bold">Account Setup <span class="float-right">Complete!</span></h4>
-                        <div class="progress">
-                            <div class="progress-bar bg-success" role="progressbar" style="width: 100%"
-                                aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Color System -->
-                <div class="row">
-                    <div class="col-lg-6 mb-4">
-                        <div class="card bg-primary text-white shadow">
-                            <div class="card-body">
-                                Primary
-                                <div class="text-white-50 small">#4e73df</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-6 mb-4">
-                        <div class="card bg-success text-white shadow">
-                            <div class="card-body">
-                                Success
-                                <div class="text-white-50 small">#1cc88a</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-6 mb-4">
-                        <div class="card bg-info text-white shadow">
-                            <div class="card-body">
-                                Info
-                                <div class="text-white-50 small">#36b9cc</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-6 mb-4">
-                        <div class="card bg-warning text-white shadow">
-                            <div class="card-body">
-                                Warning
-                                <div class="text-white-50 small">#f6c23e</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-6 mb-4">
-                        <div class="card bg-danger text-white shadow">
-                            <div class="card-body">
-                                Danger
-                                <div class="text-white-50 small">#e74a3b</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-6 mb-4">
-                        <div class="card bg-secondary text-white shadow">
-                            <div class="card-body">
-                                Secondary
-                                <div class="text-white-50 small">#858796</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-6 mb-4">
-                        <div class="card bg-light text-black shadow">
-                            <div class="card-body">
-                                Light
-                                <div class="text-black-50 small">#f8f9fc</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-6 mb-4">
-                        <div class="card bg-dark text-white shadow">
-                            <div class="card-body">
-                                Dark
-                                <div class="text-white-50 small">#5a5c69</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-
-            <div class="col-lg-6 mb-4">
-
-                <!-- Illustrations -->
-                <div class="card shadow mb-4">
-                    <div class="card-header py-3">
-                        <h6 class="m-0 font-weight-bold text-primary">Illustrations</h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="text-center">
-                            <img class="img-fluid px-3 px-sm-4 mt-3 mb-4" style="width: 25rem;"
-                                src="img/undraw_posting_photo.svg" alt="...">
-                        </div>
-                        <p>Add some quality, svg illustrations to your project courtesy of <a target="_blank"
-                                rel="nofollow" href="https://undraw.co/">unDraw</a>, a
-                            constantly updated collection of beautiful svg images that you can use
-                            completely free and without attribution!</p>
-                        <a target="_blank" rel="nofollow" href="https://undraw.co/">Browse Illustrations
-                            on
-                            unDraw &rarr;</a>
-                    </div>
-                </div>
-
-                <!-- Approach -->
-                <div class="card shadow mb-4">
-                    <div class="card-header py-3">
-                        <h6 class="m-0 font-weight-bold text-primary">Development Approach</h6>
-                    </div>
-                    <div class="card-body">
-                        <p>SB Admin 2 makes extensive use of Bootstrap 4 utility classes in order to reduce
-                            CSS bloat and poor page performance. Custom CSS classes are used to create
-                            custom components and custom utility classes.</p>
-                        <p class="mb-0">Before working with this theme, you should become familiar with
-                            the
-                            Bootstrap framework, especially the utility classes.</p>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-
+        @endif
     </div>
-@endsection --}}
+@endsection

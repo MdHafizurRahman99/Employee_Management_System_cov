@@ -58,8 +58,4 @@ class Staff extends Model
         'address_validate_file',
 
     ];
-    public function schedules()
-    {
-        return $this->hasMany(StaffSchedule::class);
-    }
 }

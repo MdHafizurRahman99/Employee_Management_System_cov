@@ -318,7 +318,7 @@ class ClientController extends Controller
             // Send a single notification to all accountants
             // Notification::send(User::find($userIds), new AccountantNotification($client)); // if we want to use this then in database id will be character
         }
-        return back()->with('message', 'New request Submited Successfully!');        //
+        return back()->with('message', 'New request submitted successfully.');        //
     }
 
     private function ValidateTFN($tfn)

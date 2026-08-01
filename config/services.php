@@ -31,4 +31,15 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'odoo' => [
+        'url' => env('ODOO_URL'),
+        'database' => env('ODOO_DB'),
+        'username' => env('ODOO_USERNAME'),
+        'password' => env('ODOO_PASSWORD'),
+        'api_key' => env('ODOO_API_KEY'),
+        'timeout' => (int) env('ODOO_TIMEOUT', 10),
+        'ssl_verify' => env('ODOO_SSL_VERIFY', env('APP_ENV') !== 'local'),
+        'ca_bundle' => env('ODOO_CA_BUNDLE'),
+    ],
+
 ];

@@ -8,6 +8,112 @@
         <div class="sidebar-brand-text mx-3">EMS </div>
     </a>
 
+    @if (auth()->user()->isManagerLike())
+        <hr class="sidebar-divider my-0">
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('manager.dashboard') }}">
+                <i class="fas fa-fw fa-users-cog"></i>
+                <span>Manager Dashboard</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('manager.payroll-summary.index') }}">
+                <i class="fas fa-fw fa-chart-pie"></i>
+                <span>Payroll Summary</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('manager.leave-report.index') }}">
+                <i class="fas fa-fw fa-clipboard-list"></i>
+                <span>Leave Report</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('manager.working-hours.index') }}">
+                <i class="fas fa-fw fa-chart-line"></i>
+                <span>Working Hours Report</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('manager.pay-history.index') }}">
+                <i class="fas fa-fw fa-money-check-alt"></i>
+                <span>Team Pay History</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('manager.payslips.create') }}">
+                <i class="fas fa-fw fa-file-invoice-dollar"></i>
+                <span>Generate Payslips</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('manager.shifts.create') }}">
+                <i class="fas fa-fw fa-calendar-plus"></i>
+                <span>Team Schedule</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('manager.attendance.index') }}">
+                <i class="fas fa-fw fa-users"></i>
+                <span>Team Attendance</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('manager.leave-approvals.index') }}">
+                <i class="fas fa-fw fa-check-double"></i>
+                <span>Leave Approvals</span>
+            </a>
+        </li>
+    @endif
+
+    @if (auth()->user()->isOdooUser())
+        <hr class="sidebar-divider my-0">
+        @if (! auth()->user()->isManagerLike())
+            <li class="nav-item">
+                <a class="nav-link" href="{{ route('dashboard') }}">
+                    <i class="fas fa-fw fa-tachometer-alt"></i>
+                    <span>Employee Dashboard</span>
+                </a>
+            </li>
+        @endif
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('employee.pay-history.index') }}">
+                <i class="fas fa-fw fa-wallet"></i>
+                <span>My Pay History</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('employee.shifts.index') }}">
+                <i class="fas fa-fw fa-calendar-alt"></i>
+                <span>My Shifts</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('employee.open-shifts.index') }}">
+                <i class="fas fa-fw fa-hand-paper"></i>
+                <span>Open Shifts</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('employee.availability.index') }}">
+                <i class="fas fa-fw fa-user-clock"></i>
+                <span>My Availability</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('employee.attendance.index') }}">
+                <i class="fas fa-fw fa-clock"></i>
+                <span>My Attendance</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="{{ route('employee.leave.index') }}">
+                <i class="fas fa-fw fa-plane-departure"></i>
+                <span>Leave Requests</span>
+            </a>
+        </li>
+    @endif
+
     @if (Auth::user()->can('staff.view'))
         <hr class="sidebar-divider my-0">
         <li class="nav-item">
@@ -28,45 +134,6 @@
 
         </li>
     @endif
-    <!-- Divider -->
-    @if (Auth::user()->can('shift.view'))
-        <li class="nav-item">
-            <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseShift"
-                aria-expanded="true" aria-controls="collapseShift">
-                {{-- <i class="fa fa-Shift" aria-hidden="true"></i> --}}
-                <span>Shifts</span>
-            </a>
-            <div id="collapseShift" class="collapse" aria-labelledby="headingShift" data-parent="#accordionSidebar">
-                <div class="bg-white py-2 collapse-inner rounded">
-                    {{-- <h6 class="collapse-header">Custom Components:</h6> --}}
-                    {{-- <a class="collapse-item" href="{{ route('shift.create') }}">Add Shift</a> --}}
-                    <a class="collapse-item" href="{{ route('shift.index') }}">List</a>
-
-                    {{-- <a class="collapse-item" href="cards.html">Cards</a> --}}
-                </div>
-            </div>
-
-        </li>
-    @endif
-    @if (Auth::user()->can('staffschedule.view'))
-        <li class="nav-item">
-            <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseStaffSchedule"
-                aria-expanded="true" aria-controls="collapseStaffSchedule">
-                {{-- <i class="fa fa-StaffSchedule" aria-hidden="true"></i> --}}
-                <span>Schedules</span>
-            </a>
-            <div id="collapseStaffSchedule" class="collapse" aria-labelledby="headingStaffSchedule"
-                data-parent="#accordionSidebar">
-                <div class="bg-white py-2 collapse-inner rounded">
-                    {{-- <h6 class="collapse-header">Custom Components:</h6> --}}
-                    {{-- <a class="collapse-item" href="{{ route('staff.create') }}">Add Staff</a> --}}
-                    <a class="collapse-item" href="{{ route('staffschedule.index') }}">List</a>
-                    {{-- <a class="collapse-item" href="cards.html">Cards</a> --}}
-                </div>
-            </div>
-        </li>
-    @endif
-
     <!-- Nav Item - Dashboard -->
     {{-- <li class="nav-item active">
         <a class="nav-link" href="{{ route('dashboard') }}">
@@ -135,7 +202,7 @@
             <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseClient"
                 aria-expanded="true" aria-controls="collapseClient">
                 <i class="fa fa-user" aria-hidden="true"></i>
-                <span>Submited Requests</span>
+                <span>Submitted Requests</span>
             </a>
             <div id="collapseClient" class="collapse" aria-labelledby="headingClient" data-parent="#accordionSidebar">
                 <div class="bg-white py-2 collapse-inner rounded">

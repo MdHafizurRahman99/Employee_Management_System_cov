@@ -3,26 +3,37 @@
 
     @php
         $user = auth()->user();
+        $roleId = null;
+        $notifications = collect();
+        $unreadNotificationsCount = 0;
 
         if ($user) {
             $roleId = $user->roles()->first();
-            // dd($roleId->id);
         }
-        // $roleId = 4; // Replace with the desired role ID
 
-        $notifications = DB::table('notifications')
-            ->where('notifiable_id', $roleId->id)
-            // ->where('notifiable_type', Role::class) // Assuming Role model
-            ->orderByRaw('CASE WHEN read_at IS NULL THEN 0 ELSE 1 END,created_at DESC')
-            ->limit(5)
-            ->get();
+        if ($user) {
+            $notificationScope = function ($query) use ($user, $roleId) {
+                $query->where(function ($userQuery) use ($user) {
+                    $userQuery->where('notifiable_type', $user->getMorphClass())
+                        ->where('notifiable_id', $user->getKey());
+                });
+                if ($roleId) {
+                    $query->orWhere(function ($roleQuery) use ($roleId) {
+                        $roleQuery->where('notifiable_type', $roleId->getMorphClass())
+                            ->where('notifiable_id', $roleId->getKey());
+                    });
+                }
+            };
 
-        $unreadNotificationsCount = DB::table('notifications')
-            ->where('notifiable_id', $roleId->id)
-            ->whereNull('read_at')
-            // ->where('notifiable_type', Role::class) // Assuming Role model
-            ->count();
-        // dd($notifications);
+            $notifications = DB::table('notifications')->where($notificationScope)
+                ->orderByRaw('CASE WHEN read_at IS NULL THEN 0 ELSE 1 END,created_at DESC')
+                ->limit(5)
+                ->get();
+
+            $unreadNotificationsCount = DB::table('notifications')->where($notificationScope)
+                ->whereNull('read_at')
+                ->count();
+        }
     @endphp
     <!-- Sidebar Toggle (Topbar) -->
     <button id="sidebarToggleTop" class="btn btn-link d-md-none rounded-circle mr-3">
@@ -100,21 +111,45 @@
                 @foreach ($notifications as $notification)
                     @php
                         $data = json_decode($notification->data, true);
-                        $clientId = isset($data['client_id']) ? $data['client_id'] : null;
+                        $notificationType = $data['type'] ?? (isset($data['client_id']) ? 'client_request' : 'general');
+                        $notificationUrl = '#';
+                        $notificationLabel = 'You have a new notification.';
+                        $notificationIcon = 'fa-bell';
+                        $notificationTone = 'bg-primary';
+
+                        if (in_array($notificationType, ['schedule_published', 'shift_confirmation_reminder'], true)) {
+                            $notificationUrl = route('employee.shifts.index', array_filter(['month' => isset($data['date']) ? substr($data['date'], 0, 7) : null, 'day' => $data['date'] ?? null]));
+                            $notificationLabel = $notificationType === 'shift_confirmation_reminder' ? 'A shift is waiting for your confirmation.' : 'A shift was published to your schedule.';
+                            $notificationIcon = $notificationType === 'shift_confirmation_reminder' ? 'fa-bell' : 'fa-calendar-check';
+                            $notificationTone = $notificationType === 'shift_confirmation_reminder' ? 'bg-warning' : 'bg-success';
+                        } elseif ($notificationType === 'shift_confirmation_response') {
+                            $notificationUrl = route('manager.shifts.confirmations');
+                            $notificationLabel = ($data['employee'] ?? 'An employee').' '.($data['status'] ?? 'responded to').' a shift.';
+                            $notificationIcon = 'fa-clipboard-check';
+                            $notificationTone = ($data['status'] ?? '') === 'declined' ? 'bg-danger' : 'bg-success';
+                        } elseif (isset($data['leave_request_id'])) {
+                            $notificationUrl = route('employee.leave.index');
+                            $notificationLabel = 'Your leave request is now '.strtolower($data['status'] ?? 'updated').'.';
+                            $notificationIcon = 'fa-plane-departure';
+                        } elseif (isset($data['client_id'])) {
+                            $notificationUrl = route('client.edit', ['client' => $data['client_id']]);
+                            $notificationLabel = 'A new client request has been submitted.';
+                            $notificationIcon = 'fa-file-alt';
+                        }
                     @endphp
                     {{-- @dd($notifications); --}}
                     <a class="dropdown-item d-flex align-items-center"
-                        href="{{ route('client.edit', ['client' => $clientId]) }}">
+                        href="{{ $notificationUrl }}">
                         <div class="mr-3">
-                            <div class="icon-circle bg-primary">
-                                <i class="fas fa-file-alt text-white"></i>
+                            <div class="icon-circle {{ $notificationTone }}">
+                                <i class="fas {{ $notificationIcon }} text-white"></i>
                             </div>
                         </div>
                         <div>
                             <div class="small text-gray-500">
                                 {{ date('F j, Y \a\t h:i A', strtotime($notification->created_at)) }}
                             </div>
-                            <span class="font-weight-bold">A new Client requested is Submited</span>
+                            <span class="font-weight-bold">{{ $notificationLabel }}</span>
                         </div>
                     </a>
                 @endforeach
@@ -140,8 +175,8 @@
                         Spending Alert: We've noticed unusually high spending for your account.
                     </div>
                 </a> --}}
-                <a class="dropdown-item text-center small text-gray-500" href="#">Show All
-                    Alerts</a>
+                <a class="dropdown-item text-center small text-gray-500" href="#">View all
+                    notifications</a>
             </div>
         </li>
 

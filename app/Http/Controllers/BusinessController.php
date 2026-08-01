@@ -178,7 +178,7 @@ class BusinessController extends Controller
             ]);
         }
 
-        return back()->with('message', 'Business Profile Submited Successfully!');
+        return back()->with('message', 'Business profile submitted successfully.');
         //
     }
 

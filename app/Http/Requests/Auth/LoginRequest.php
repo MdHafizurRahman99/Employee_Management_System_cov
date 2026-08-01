@@ -2,6 +2,10 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\User;
+use App\Services\Odoo\OdooAuthService;
+use App\Services\Odoo\OdooException;
+use App\Services\Odoo\OdooUserSynchronizer;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
@@ -28,7 +32,7 @@ class LoginRequest extends FormRequest
     {
         return [
             'email' => ['required', 'string', 'email'],
-            'password' => ['required', 'string'],
+            'pin_code' => ['required', 'string'],
         ];
     }
 
@@ -37,19 +41,69 @@ class LoginRequest extends FormRequest
      *
      * @throws \Illuminate\Validation\ValidationException
      */
-    public function authenticate(): void
+    public function authenticate(
+        OdooAuthService $odooAuthService,
+        OdooUserSynchronizer $odooUserSynchronizer
+    ): void
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
-            RateLimiter::hit($this->throttleKey());
+        $odooFailureMessage = null;
 
-            throw ValidationException::withMessages([
-                'email' => trans('auth.failed'),
-            ]);
+        if ($odooAuthService->isConfigured()) {
+            try {
+                $profile = $odooAuthService->authenticate(
+                    trim((string) $this->input('email')),
+                    (string) $this->input('pin_code')
+                );
+            } catch (OdooException $exception) {
+                $profile = null;
+                $odooFailureMessage = $exception->getMessage();
+            }
+
+            if ($profile) {
+                $user = $odooUserSynchronizer->sync($profile);
+
+                Auth::login($user, $this->boolean('remember'));
+
+                $this->session()->put('odoo', [
+                    'auth_source' => 'odoo',
+                    'user_id' => $user->odoo_user_id,
+                    'employee_id' => $user->odoo_employee_id,
+                    'resource_id' => $user->odoo_resource_id,
+                    'role' => $user->role,
+                    'is_manager' => $user->isOdooManager(),
+                ]);
+
+                RateLimiter::clear($this->throttleKey());
+
+                return;
+            }
+        } else {
+            $odooFailureMessage = 'Employee login is unavailable until the Odoo connection is configured.';
         }
 
-        RateLimiter::clear($this->throttleKey());
+        if (Auth::attempt([
+            'email' => trim((string) $this->input('email')),
+            'password' => (string) $this->input('pin_code'),
+        ], $this->boolean('remember'))) {
+            $this->session()->forget('odoo');
+            RateLimiter::clear($this->throttleKey());
+
+            return;
+        }
+
+        RateLimiter::hit($this->throttleKey());
+
+        $message = $odooFailureMessage ?? trans('auth.failed');
+
+        if (! $odooAuthService->isConfigured() && User::whereRaw('LOWER(email) = ?', [Str::lower((string) $this->input('email'))])->exists()) {
+            $message = trans('auth.failed');
+        }
+
+        throw ValidationException::withMessages([
+            'email' => $message,
+        ]);
     }
 
     /**

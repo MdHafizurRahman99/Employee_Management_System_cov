@@ -2,6 +2,10 @@
     <!-- Session Status -->
     <x-auth-session-status class="mb-4" :status="session('status')" />
 
+    <div class="mb-4 text-sm text-gray-600">
+        Sign in with your employee email and PIN. Administrators may continue using their existing password.
+    </div>
+
     <form method="POST" action="{{ route('login') }}">
         @csrf
 
@@ -13,14 +17,14 @@
             <x-input-error :messages="$errors->get('email')" class="mt-2" />
         </div>
 
-        <!-- Password -->
+        <!-- PIN / Password -->
         <div class="mt-4">
-            <x-input-label for="password" :value="__('Password')" />
+            <x-input-label for="pin_code" :value="__('PIN or Password')" />
 
-            <x-text-input id="password" class="block mt-1 w-full" type="password" name="password" required
+            <x-text-input id="pin_code" class="block mt-1 w-full" type="password" name="pin_code" required
                 autocomplete="current-password" />
 
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
+            <x-input-error :messages="$errors->get('pin_code')" class="mt-2" />
         </div>
 
         <!-- Remember Me -->
@@ -53,22 +57,9 @@
 
         </div>
         <div class="flex items-center justify-end mt-4 px-2">
-
-            {{-- @if (Route::has('password.request'))
-                <a class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                    href="{{ route('register') }}">
-                    {{ __('Do you have a signUp?') }}
-                </a>
-            @endif --}}
-            <hr>
-
-            <x-primary-button class="ms-3">
-                <a class=" text-sm  hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                    href="{{ route('register') }}">
-                    {{ __('Create a New Account') }}
-                </a>
-            </x-primary-button>
-
+            <p class="text-sm text-gray-500">
+                If you need access, please contact your administrator.
+            </p>
         </div>
     </form>
 </x-guest-layout>

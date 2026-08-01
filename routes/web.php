@@ -5,15 +5,35 @@ use App\Http\Controllers\BusinessController;
 use App\Http\Controllers\BusniessProfileController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientRequestController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EmployeeAvailabilityController;
+use App\Http\Controllers\EmployeeAttendanceController;
+use App\Http\Controllers\EmployeeLeaveController;
+use App\Http\Controllers\EmployeePayHistoryController;
+use App\Http\Controllers\EmployeeShiftController;
+use App\Http\Controllers\EmployeeCalendarEntryController;
+use App\Http\Controllers\ManagerDashboardController;
+use App\Http\Controllers\ManagerAttendanceController;
+use App\Http\Controllers\ManagerLeaveApprovalController;
+use App\Http\Controllers\ManagerLeaveReportController;
+use App\Http\Controllers\ManagerPayHistoryController;
+use App\Http\Controllers\ManagerPayrollSummaryReportController;
+use App\Http\Controllers\ManagerPayslipController;
+use App\Http\Controllers\ManagerShiftController;
+use App\Http\Controllers\ManagerAutoScheduleController;
+use App\Http\Controllers\ManagerScheduleUndoController;
+use App\Http\Controllers\ManagerScheduleTemplateController;
+use App\Http\Controllers\ManagerScheduleAreaController;
+use App\Http\Controllers\ManagerScheduleDayController;
+use App\Http\Controllers\ManagerScheduleComplianceController;
+use App\Http\Controllers\ManagerScheduleBudgetController;
+use App\Http\Controllers\ManagerWorkingHoursReportController;
 use App\Http\Controllers\Permission\PermissionController;
 use App\Http\Controllers\Permission\RolesPermissionController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\StaffController;
-use App\Http\Controllers\ShiftController;
-use App\Http\Controllers\StaffScheduleController;
 use App\Http\Controllers\TryTestController;
-use App\Models\StaffSchedule;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -30,15 +50,96 @@ Route::get('/', function () {
     return view('front-end.home.home');
 })->name('/');
 
-Route::get('/dashboard', function () {
-    return view('admin.dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', [DashboardController::class, 'show'])
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard');
+
+Route::get('/manager/dashboard', [ManagerDashboardController::class, 'show'])
+    ->middleware(['auth', 'can:access-manager-tools'])
+    ->name('manager.dashboard');
+
+Route::middleware(['auth', 'can:access-manager-tools'])->group(function () {
+    Route::get('manager/attendance', [ManagerAttendanceController::class, 'index'])->name('manager.attendance.index');
+    Route::post('manager/attendance/{attendance}/correct', [ManagerAttendanceController::class, 'correct'])->name('manager.attendance.correct');
+    Route::get('manager/leave-approvals', [ManagerLeaveApprovalController::class, 'index'])->name('manager.leave-approvals.index');
+    Route::post('manager/leave-approvals/{leaveRequest}/approve', [ManagerLeaveApprovalController::class, 'approve'])->name('manager.leave-approvals.approve');
+    Route::post('manager/leave-approvals/{leaveRequest}/refuse', [ManagerLeaveApprovalController::class, 'refuse'])->name('manager.leave-approvals.refuse');
+    Route::get('manager/leave-report', [ManagerLeaveReportController::class, 'index'])->name('manager.leave-report.index');
+    Route::get('manager/leave-report/export/excel', [ManagerLeaveReportController::class, 'exportExcel'])->name('manager.leave-report.export.excel');
+    Route::get('manager/leave-report/export/pdf', [ManagerLeaveReportController::class, 'exportPdf'])->name('manager.leave-report.export.pdf');
+    Route::get('manager/pay-history', [ManagerPayHistoryController::class, 'index'])->name('manager.pay-history.index');
+    Route::get('manager/payroll-summary', [ManagerPayrollSummaryReportController::class, 'index'])->name('manager.payroll-summary.index');
+    Route::get('manager/payroll-summary/export/excel', [ManagerPayrollSummaryReportController::class, 'exportExcel'])->name('manager.payroll-summary.export.excel');
+    Route::get('manager/payroll-summary/export/pdf', [ManagerPayrollSummaryReportController::class, 'exportPdf'])->name('manager.payroll-summary.export.pdf');
+    Route::get('manager/payslips/create', [ManagerPayslipController::class, 'create'])->name('manager.payslips.create');
+    Route::post('manager/payslips', [ManagerPayslipController::class, 'store'])->name('manager.payslips.store');
+    Route::get('manager/working-hours', [ManagerWorkingHoursReportController::class, 'index'])->name('manager.working-hours.index');
+    Route::get('manager/working-hours/export/excel', [ManagerWorkingHoursReportController::class, 'exportExcel'])->name('manager.working-hours.export.excel');
+    Route::get('manager/working-hours/export/pdf', [ManagerWorkingHoursReportController::class, 'exportPdf'])->name('manager.working-hours.export.pdf');
+    Route::get('manager/shifts/create', [ManagerShiftController::class, 'create'])->name('manager.shifts.create');
+    Route::get('manager/shifts/confirmations', [ManagerShiftController::class, 'confirmations'])->name('manager.shifts.confirmations');
+    Route::post('manager/shifts/{shift}/remind', [ManagerShiftController::class, 'remindConfirmation'])->name('manager.shifts.remind');
+    Route::post('manager/shifts', [ManagerShiftController::class, 'store'])->name('manager.shifts.store');
+    Route::post('manager/shifts/publish-week', [ManagerShiftController::class, 'publishWeek'])->name('manager.shifts.publish-week');
+    Route::post('manager/shifts/bulk-delete', [ManagerShiftController::class, 'bulkDelete'])->name('manager.shifts.bulk-delete');
+    Route::post('manager/shifts/bulk-open', [ManagerShiftController::class, 'bulkOpen'])->name('manager.shifts.bulk-open');
+    Route::post('manager/shifts/bulk-update', [ManagerShiftController::class, 'bulkUpdate'])->name('manager.shifts.bulk-update');
+    Route::post('manager/shifts/copy-period', [ManagerShiftController::class, 'copyPeriod'])->name('manager.shifts.copy-period');
+    Route::post('manager/shifts/{shift}/update', [ManagerShiftController::class, 'update'])->name('manager.shifts.update');
+    Route::post('manager/shifts/{shift}/delete', [ManagerShiftController::class, 'destroy'])->name('manager.shifts.destroy');
+    Route::get('manager/auto-schedule', [ManagerAutoScheduleController::class, 'index'])->name('manager.auto-schedule.index');
+    Route::post('manager/auto-schedule/apply', [ManagerAutoScheduleController::class, 'apply'])->name('manager.auto-schedule.apply');
+    Route::post('manager/schedule/undo', ManagerScheduleUndoController::class)->name('manager.schedule.undo');
+    Route::get('manager/schedule-templates', [ManagerScheduleTemplateController::class, 'index'])->name('manager.schedule-templates.index');
+    Route::post('manager/schedule-templates', [ManagerScheduleTemplateController::class, 'store'])->name('manager.schedule-templates.store');
+    Route::post('manager/schedule-templates/{template}/apply', [ManagerScheduleTemplateController::class, 'apply'])->name('manager.schedule-templates.apply');
+    Route::post('manager/schedule-templates/{template}/archive', [ManagerScheduleTemplateController::class, 'archive'])->name('manager.schedule-templates.archive');
+    Route::get('manager/schedule-areas', [ManagerScheduleAreaController::class, 'index'])->name('manager.schedule-areas.index');
+    Route::post('manager/schedule-areas', [ManagerScheduleAreaController::class, 'store'])->name('manager.schedule-areas.store');
+    Route::post('manager/schedule-areas/{area}', [ManagerScheduleAreaController::class, 'update'])->name('manager.schedule-areas.update');
+    Route::post('manager/schedule-areas/{area}/archive', [ManagerScheduleAreaController::class, 'destroy'])->name('manager.schedule-areas.destroy');
+    Route::get('manager/schedule-days', [ManagerScheduleDayController::class, 'index'])->name('manager.schedule-days.index');
+    Route::post('manager/schedule-days', [ManagerScheduleDayController::class, 'store'])->name('manager.schedule-days.store');
+    Route::post('manager/schedule-days/{dayMeta}/delete', [ManagerScheduleDayController::class, 'destroy'])->name('manager.schedule-days.destroy');
+    Route::get('manager/schedule-compliance', [ManagerScheduleComplianceController::class, 'index'])->name('manager.schedule-compliance.index');
+    Route::post('manager/schedule-compliance/rules', [ManagerScheduleComplianceController::class, 'storeRule'])->name('manager.schedule-compliance.rules');
+    Route::post('manager/schedule-compliance/breaks', [ManagerScheduleComplianceController::class, 'storeBreak'])->name('manager.schedule-compliance.breaks.store');
+    Route::post('manager/schedule-compliance/breaks/{shiftBreak}/delete', [ManagerScheduleComplianceController::class, 'destroyBreak'])->name('manager.schedule-compliance.breaks.destroy');
+    Route::get('manager/schedule-budget', [ManagerScheduleBudgetController::class, 'index'])->name('manager.schedule-budget.index');
+    Route::post('manager/schedule-budget/rates', [ManagerScheduleBudgetController::class, 'storeRate'])->name('manager.schedule-budget.rates');
+    Route::post('manager/schedule-budget/budgets', [ManagerScheduleBudgetController::class, 'storeBudget'])->name('manager.schedule-budget.budgets');
+});
 
 // Route::get('/dashboard', function () {
 //     return view('dashboard');
 // })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
+    Route::get('employee/availability', [EmployeeAvailabilityController::class, 'index'])->name('employee.availability.index');
+    Route::post('employee/availability', [EmployeeAvailabilityController::class, 'store'])->name('employee.availability.store');
+    Route::post('employee/availability/{availability}/update', [EmployeeAvailabilityController::class, 'update'])->name('employee.availability.update');
+    Route::post('employee/availability/{availability}/delete', [EmployeeAvailabilityController::class, 'destroy'])->name('employee.availability.destroy');
+    Route::get('employee/attendance', [EmployeeAttendanceController::class, 'index'])->name('employee.attendance.index');
+    Route::post('employee/attendance/check-in', [EmployeeAttendanceController::class, 'checkIn'])->name('employee.attendance.check-in');
+    Route::post('employee/attendance/start-break', [EmployeeAttendanceController::class, 'startBreak'])->name('employee.attendance.start-break');
+    Route::post('employee/attendance/end-break', [EmployeeAttendanceController::class, 'endBreak'])->name('employee.attendance.end-break');
+    Route::post('employee/attendance/check-out', [EmployeeAttendanceController::class, 'checkOut'])->name('employee.attendance.check-out');
+    Route::get('employee/leave-requests', [EmployeeLeaveController::class, 'index'])->name('employee.leave.index');
+    Route::post('employee/leave-requests', [EmployeeLeaveController::class, 'store'])->name('employee.leave.store');
+    Route::post('employee/leave-requests/{leaveRequest}/cancel', [EmployeeLeaveController::class, 'cancel'])->name('employee.leave.cancel');
+    Route::get('employee/pay-history', [EmployeePayHistoryController::class, 'index'])->name('employee.pay-history.index');
+    Route::get('employee/shifts', [EmployeeShiftController::class, 'index'])->name('employee.shifts.index');
+    Route::post('employee/shifts/{shift}/respond', [EmployeeShiftController::class, 'respond'])->name('employee.shifts.respond');
+    Route::post('employee/calendar-entries', [EmployeeCalendarEntryController::class, 'store'])->name('employee.calendar-entries.store');
+    Route::post('employee/calendar-entries/{calendarEntry}', [EmployeeCalendarEntryController::class, 'update'])
+        ->whereNumber('calendarEntry')
+        ->name('employee.calendar-entries.update');
+    Route::post('employee/calendar-entries/{calendarEntry}/delete', [EmployeeCalendarEntryController::class, 'destroy'])
+        ->whereNumber('calendarEntry')
+        ->name('employee.calendar-entries.destroy');
+    Route::get('employee/open-shifts', [EmployeeShiftController::class, 'openShifts'])->name('employee.open-shifts.index');
+    Route::post('employee/open-shifts/{shift}/claim', [EmployeeShiftController::class, 'claimOpenShift'])->name('employee.open-shifts.claim');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -108,28 +209,6 @@ Route::middleware('auth')->group(function () {
     Route::get('staff/index', [StaffController::class, 'index'])->name('staff.index')->middleware('permission:staff.view');
     Route::post('staff/destroy/{id}', [StaffController::class, 'destroy'])->name('staff.destroy')->middleware('permission:staff.delete');
 
-    Route::get('shift/create', [ShiftController::class, 'create'])->name('shift.create');
-    // Route::get('shift/create', [ShiftController::class, 'create'])->name('shift.create')->middleware('permission:shift.add');
-    Route::post('shift/store', [ShiftController::class, 'store'])->name('shift.store');
-    // Route::post('shift/store', [ShiftController::class, 'store'])->name('shift.store')->middleware('permission:shift.add');
-    Route::get('shift/edit/{id}', [ShiftController::class, 'edit'])->name('shift.edit')->middleware('permission:shift.edit');
-    Route::post('shift/update', [ShiftController::class, 'update'])->name('shift.update')->middleware('permission:shift.edit');
-    Route::get('/get-shift-data', [ShiftController::class, 'getShiftData'])->name('get.shift.data');
-
-    Route::get('shift/index', [ShiftController::class, 'index'])->name('shift.index')->middleware('permission:shift.view');
-    Route::post('shift/destroy/{id}', [ShiftController::class, 'destroy'])->name('shift.destroy')->middleware('permission:shift.delete');
-
-    // Route::get('staffschedule/create', [StaffScheduleController::class, 'create'])->name('staffschedule.create');
-    Route::get('staffschedule/create', [StaffScheduleController::class, 'create'])->name('staffschedule.create')->middleware('permission:staffschedule.add');
-    // Route::post('staffschedule/store', [StaffScheduleController::class, 'store'])->name('staffschedule.store');
-    Route::post('staffschedule/store', [StaffScheduleController::class, 'store'])->name('staffschedule.store')->middleware('permission:staffschedule.add');
-    Route::get('staffschedule/edit/{id}', [StaffScheduleController::class, 'edit'])->name('staffschedule.edit')->middleware('permission:staffschedule.edit');
-
-    Route::get('/get-schedule-data', [StaffScheduleController::class, 'getSchedulData'])->name('get.schedule.data');
-
-    Route::post('staffschedule/update', [StaffScheduleController::class, 'update'])->name('staffschedule.update')->middleware('permission:staffschedule.edit');
-    Route::get('staffschedule/index', [StaffScheduleController::class, 'index'])->name('staffschedule.index')->middleware('permission:staffschedule.view');
-    Route::post('staffschedule/destroy/{id}', [StaffScheduleController::class, 'destroy'])->name('staffschedule.destroy')->middleware('permission:staffschedule.delete');
 });
 
 // use for test 

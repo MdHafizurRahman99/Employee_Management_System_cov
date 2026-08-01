@@ -1,0 +1,271 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Services\Odoo\OdooException;
+use App\Services\Odoo\OdooPlanningService;
+use Carbon\Carbon;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
+use App\Services\Scheduling\SchedulePublishService;
+use App\Services\Odoo\OdooEmployeeScheduleEntryService;
+use App\Services\Odoo\OdooManagerPlanningService;
+
+class EmployeeShiftController extends Controller
+{
+    /**
+     * Display the logged-in employee's assigned shifts from Odoo.
+     */
+    public function index(
+        Request $request,
+        OdooPlanningService $planningService,
+        ?OdooEmployeeScheduleEntryService $scheduleEntries = null
+    ): View
+    {
+        $hasLeaveIdentity = filled($request->user()?->odoo_employee_id);
+        $selectedMonth = $this->resolveMonth($request->query('month'));
+        $selectedDay = $this->resolveSelectedDay($request->query('day'), $selectedMonth);
+        $pageData = [
+            'shifts' => [],
+            'todayShift' => null,
+            'shiftCalendar' => [],
+            'selectedCalendarDate' => $selectedMonth->copy()->startOfMonth(),
+            'selectedCalendarDateLabel' => $selectedMonth->format('D, d M Y'),
+            'selectedCalendarDateValue' => $selectedMonth->format('Y-m-d'),
+            'selectedCalendarShifts' => [],
+        ];
+        $odooShiftError = null;
+        $odooDiaryError = null;
+
+        try {
+            $pageData = $planningService->getShiftPageData($request->user(), $selectedMonth, $selectedDay);
+        } catch (OdooException $exception) {
+            $odooShiftError = $exception->getMessage();
+        }
+
+        $pageData = $this->decorateShiftPageDataWithLeaveRequestLinks($pageData, $hasLeaveIdentity);
+        $diaryEntries = [];
+
+        if ($hasLeaveIdentity && $scheduleEntries) {
+            try {
+                $diaryEntries = $scheduleEntries->getForUserMonth($request->user(), $selectedMonth);
+                $pageData['shiftCalendar'] = $scheduleEntries->addEntriesToCalendar(
+                    $pageData['shiftCalendar'],
+                    $diaryEntries
+                );
+            } catch (OdooException $exception) {
+                $odooDiaryError = $exception->getMessage();
+            }
+        }
+
+        $selectedDiaryEntries = array_values(array_filter(
+            $diaryEntries,
+            fn (array $entry): bool => $entry['date_value'] === $pageData['selectedCalendarDateValue']
+        ));
+
+        return view('admin.employee-shifts.index', [
+            'selectedMonth' => $selectedMonth,
+            'previousMonth' => $selectedMonth->copy()->subMonthNoOverflow(),
+            'nextMonth' => $selectedMonth->copy()->addMonthNoOverflow(),
+            'shifts' => $pageData['shifts'],
+            'todayShift' => $pageData['todayShift'],
+            'shiftCalendar' => $pageData['shiftCalendar'],
+            'selectedCalendarDate' => $pageData['selectedCalendarDate'],
+            'selectedCalendarDateLabel' => $pageData['selectedCalendarDateLabel'],
+            'selectedCalendarDateValue' => $pageData['selectedCalendarDateValue'],
+            'selectedCalendarShifts' => $pageData['selectedCalendarShifts'],
+            'diaryEntries' => $diaryEntries,
+            'selectedDiaryEntries' => $selectedDiaryEntries,
+            'odooShiftError' => $odooShiftError,
+            'odooDiaryError' => $odooDiaryError,
+            'hasLeaveIdentity' => $hasLeaveIdentity,
+        ]);
+    }
+
+    public function respond(Request $request, OdooPlanningService $planningService, SchedulePublishService $publishService, int $shift): RedirectResponse
+    {
+        $validated = $request->validate([
+            'month' => ['required', 'date_format:Y-m'],
+            'status' => ['required', 'in:accepted,declined'],
+            'note' => ['nullable', 'string', 'max:500', 'required_if:status,declined'],
+        ]);
+        $month = $this->resolveMonth($validated['month']);
+        $owned = collect($planningService->getShiftsForMonth($request->user(), $month))
+            ->contains(fn (array $candidate): bool => (int) ($candidate['id'] ?? 0) === $shift);
+
+        if (! $owned) {
+            abort(403, 'This shift is not assigned to you.');
+        }
+
+        try {
+            $publishService->respondToShift($shift, $request->user(), $validated['status'], $validated['note'] ?? null);
+        } catch (\RuntimeException $exception) {
+            return back()->withErrors(['employee_shift' => $exception->getMessage()]);
+        }
+
+        return redirect()->route('employee.shifts.index', ['month' => $validated['month']])
+            ->with('success', $validated['status'] === 'accepted' ? 'Shift accepted.' : 'Shift declined. Your manager can see the reason.');
+    }
+
+    public function openShifts(Request $request, OdooManagerPlanningService $planningService): View
+    {
+        $selectedDay = $this->resolveOpenShiftDay($request->query('day'));
+        $openShifts = [];
+        $odooShiftError = null;
+
+        try {
+            $openShifts = $planningService->getOpenShiftsForEmployee($request->user(), $selectedDay);
+        } catch (OdooException $exception) {
+            $odooShiftError = $exception->getMessage();
+        }
+
+        return view('admin.employee-shifts.open', [
+            'selectedDay' => $selectedDay,
+            'weekStart' => $selectedDay->copy()->startOfWeek(),
+            'weekEnd' => $selectedDay->copy()->endOfWeek(),
+            'openShifts' => $openShifts,
+            'odooShiftError' => $odooShiftError,
+        ]);
+    }
+
+    public function claimOpenShift(Request $request, OdooManagerPlanningService $planningService, SchedulePublishService $publishService, int $shift): RedirectResponse
+    {
+        $validated = $request->validate([
+            'day' => ['required', 'date_format:Y-m-d'],
+            'last_known_write_date' => ['required', 'string', 'max:40'],
+        ]);
+
+        try {
+            $planningService->claimOpenShift($request->user(), $shift, $validated['last_known_write_date']);
+            $publishService->recordOpenShiftClaim($shift, $request->user());
+        } catch (OdooException $exception) {
+            return redirect()->route('employee.open-shifts.index', ['day' => $validated['day']])
+                ->withErrors(['open_shift' => $exception->getMessage()]);
+        }
+
+        return redirect()->route('employee.open-shifts.index', ['day' => $validated['day']])
+            ->with('success', 'The open shift is now assigned to you.');
+    }
+
+    private function resolveOpenShiftDay(?string $day): Carbon
+    {
+        try {
+            return $day ? Carbon::createFromFormat('Y-m-d', $day)->startOfDay() : now()->startOfDay();
+        } catch (\Throwable) {
+            return now()->startOfDay();
+        }
+    }
+
+    private function resolveMonth(?string $month): Carbon
+    {
+        if (! $month) {
+            return now()->startOfMonth();
+        }
+
+        try {
+            return Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        } catch (\Throwable) {
+            return now()->startOfMonth();
+        }
+    }
+
+    private function resolveSelectedDay(?string $day, Carbon $selectedMonth): ?Carbon
+    {
+        if (! $day) {
+            return null;
+        }
+
+        try {
+            $selectedDay = Carbon::createFromFormat('Y-m-d', $day)->startOfDay();
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return $selectedDay->isSameMonth($selectedMonth) ? $selectedDay : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $pageData
+     * @return array<string, mixed>
+     */
+    private function decorateShiftPageDataWithLeaveRequestLinks(array $pageData, bool $hasLeaveIdentity): array
+    {
+        $pageData['shifts'] = array_map(
+            fn (array $shift): array => $this->decorateShiftWithLeaveRequestLink($shift, $hasLeaveIdentity),
+            $pageData['shifts'] ?? []
+        );
+
+        $pageData['selectedCalendarShifts'] = array_map(
+            fn (array $shift): array => $this->decorateShiftWithLeaveRequestLink($shift, $hasLeaveIdentity),
+            $pageData['selectedCalendarShifts'] ?? []
+        );
+
+        $pageData['todayShift'] = is_array($pageData['todayShift'] ?? null)
+            ? $this->decorateShiftWithLeaveRequestLink($pageData['todayShift'], $hasLeaveIdentity)
+            : null;
+
+        return $pageData;
+    }
+
+    /**
+     * @param  array<string, mixed>  $shift
+     * @return array<string, mixed>
+     */
+    private function decorateShiftWithLeaveRequestLink(array $shift, bool $hasLeaveIdentity): array
+    {
+        $shift['can_request_unavailability'] = false;
+        $shift['request_unavailability_url'] = null;
+        $shift['supports_hourly_unavailability'] = false;
+
+        $startAt = $shift['start_at'] ?? null;
+        $endAt = $shift['end_at'] ?? null;
+
+        if (! $hasLeaveIdentity || ! ($startAt instanceof Carbon) || ! ($endAt instanceof Carbon) || ! $endAt->isFuture()) {
+            return $shift;
+        }
+
+        $shift['can_request_unavailability'] = true;
+        $shift['supports_hourly_unavailability'] = $startAt->isSameDay($endAt);
+
+        $query = [
+            'source' => 'shift',
+            'source_shift_id' => isset($shift['id']) ? (string) $shift['id'] : null,
+            'source_shift_title' => isset($shift['title']) ? (string) $shift['title'] : 'Assigned Shift',
+            'source_shift_role' => isset($shift['role']) ? (string) $shift['role'] : null,
+            'source_shift_company' => isset($shift['company']) ? (string) $shift['company'] : null,
+            'source_shift_date_label' => isset($shift['date_label']) ? (string) $shift['date_label'] : $startAt->format('D, d M Y'),
+            'source_shift_time_label' => trim(sprintf(
+                '%s - %s',
+                isset($shift['start_label']) ? (string) $shift['start_label'] : $startAt->format('h:i A'),
+                isset($shift['end_label']) ? (string) $shift['end_label'] : $endAt->format('h:i A')
+            )),
+            'source_shift_start_at' => $this->formatUtcDateTime($startAt),
+            'source_shift_end_at' => $this->formatUtcDateTime($endAt),
+            'start_date' => $startAt->toDateString(),
+            'end_date' => $endAt->toDateString(),
+        ];
+
+        if ($shift['supports_hourly_unavailability']) {
+            $query['start_hour'] = $this->formatDecimalHour($startAt);
+            $query['end_hour'] = $this->formatDecimalHour($endAt);
+        }
+
+        $shift['request_unavailability_url'] = route('employee.leave.index', array_filter(
+            $query,
+            fn (mixed $value): bool => $value !== null && $value !== ''
+        ));
+
+        return $shift;
+    }
+
+    private function formatDecimalHour(Carbon $dateTime): string
+    {
+        return number_format($dateTime->hour + ($dateTime->minute / 60), 2, '.', '');
+    }
+
+    private function formatUtcDateTime(Carbon $dateTime): string
+    {
+        return $dateTime->copy()->setTimezone('UTC')->format('Y-m-d H:i:s');
+    }
+}

@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use Artisaninweb\SoapWrapper\Facades\SoapWrapper;
 use App\Models\Staff;
-use App\Models\StaffSchedule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
@@ -323,7 +322,7 @@ class StaffController extends Controller
 
             ]
         );
-        return redirect()->route('staff.index')->with('message', 'Request Submited Successfully!');
+        return redirect()->route('staff.index')->with('message', 'Request submitted successfully.');
     }
 
     /**
@@ -729,7 +728,6 @@ class StaffController extends Controller
     public function destroy(Staff $id)
     {
         // return $id->id;
-        $delete = StaffSchedule::where('staff_id', $id->id)->delete();
         if ($id->address_validate_file) {
             unlink($id->address_validate_file);
         }

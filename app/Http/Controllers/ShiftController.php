@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Shift;
-use App\Models\StaffSchedule;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
@@ -101,7 +100,6 @@ class ShiftController extends Controller
      */
     public function destroy(Shift $id)
     {
-        $delete = StaffSchedule::where('shift_id', $id->id)->delete();
         $id->delete();
         return redirect()->route('shift.index')->with('message', 'Shift Deleted Successfully!');
         // return $id;
