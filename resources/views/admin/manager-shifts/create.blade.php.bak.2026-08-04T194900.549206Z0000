@@ -1543,10 +1543,7 @@
                         </a>
                     @endforeach
 
-                    <div class="roster-timeoff-label">
-                        <span>Time Off</span>
-                        <span>{{ $approvedLeaveCount + $pendingLeaveCount + $unavailablePeopleCount }}</span>
-                    </div>
+                    {{-- Time Off moved into date summary --}}
 
                     @foreach ($rosterDays as $day)
                         @php

@@ -2545,7 +2545,7 @@
                                     </option>
                                 @endforeach
                             </select>
-                            
+                            <small class="form-text text-muted">Leave blank to turn this into an open shift.</small>
                         </div>
 
                         <div id="editShiftDiaryContext" class="alert alert-warning d-none" role="status" aria-live="polite">

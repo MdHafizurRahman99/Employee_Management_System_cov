@@ -1537,16 +1537,18 @@
                             <div class="small text-muted font-weight-bold mt-1">
                                 {{ $day['shift_count'] }} shift{{ $day['shift_count'] === 1 ? '' : 's' }}
                             </div>
+                            @php($dayUnavailableCount = ($timeOffDays[$day['date_value']]['unavailable_count'] ?? 0))
+                            @if($dayUnavailableCount > 0)
+                                <div class="small text-danger font-weight-bold mt-1">
+                                    <i class="fas fa-user-clock"></i> {{ $dayUnavailableCount }} unavailable
+                                </div>
+                            @endif
                             @if(!empty($day['holiday_labels']) || !empty($day['has_day_note']) || !empty($day['blocked_labels']))
                                 <div class="day-signal-row">@if(!empty($day['holiday_labels']))<span class="day-signal is-holiday"><i class="fas fa-star"></i>{{ implode(', ',$day['holiday_labels']) }}</span>@endif @if(!empty($day['has_day_note']))<span class="day-signal" title="Day note"><i class="fas fa-sticky-note"></i></span>@endif @if(!empty($day['blocked_labels']))<span class="day-signal is-blocked" title="Blocked {{ implode(', ',$day['blocked_labels']) }}"><i class="fas fa-ban"></i></span>@endif</div>
                             @endif
                         </a>
                     @endforeach
 
-                    <div class="roster-timeoff-label">
-                        <span>Time Off</span>
-                        <span>{{ $approvedLeaveCount + $pendingLeaveCount + $unavailablePeopleCount }}</span>
-                    </div>
 
                     @foreach ($rosterDays as $day)
                         @php

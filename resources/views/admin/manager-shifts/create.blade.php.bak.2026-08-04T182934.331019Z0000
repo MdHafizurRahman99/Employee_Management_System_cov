@@ -1,4 +1,4 @@
-﻿@extends('layouts.admin.master')
+@extends('layouts.admin.master')
 
 @section('title')
     Team Schedule
@@ -1273,9 +1273,9 @@
             @endphp
             <div class="schedule-undo-toast" id="scheduleUndoToast" role="status" aria-live="polite">
                 <div class="schedule-undo-icon"><i class="fas fa-history"></i></div>
-                <div class="schedule-undo-copy"><strong>{{ $scheduleUndo['label'] }}</strong><small>{{ $scheduleUndo['count'] }} Odoo shift(s) created Â· Undo available for 10 minutes</small></div>
+                <div class="schedule-undo-copy"><strong>{{ $scheduleUndo['label'] }}</strong><small>{{ $scheduleUndo['count'] }} Odoo shift(s) created · Undo available for 10 minutes</small></div>
                 <form method="POST" action="{{ route('manager.schedule.undo') }}">@csrf<input type="hidden" name="token" value="{{ $scheduleUndo['token'] }}"><button class="btn btn-warning btn-sm" type="submit"><i class="fas fa-undo mr-1"></i>Undo</button></form>
-                <button class="schedule-undo-dismiss" type="button" aria-label="Dismiss undo message" onclick="this.closest('.schedule-undo-toast').remove()">Ã—</button>
+                <button class="schedule-undo-dismiss" type="button" aria-label="Dismiss undo message" onclick="this.closest('.schedule-undo-toast').remove()">×</button>
                 <span class="schedule-undo-timer" aria-hidden="true"></span>
             </div>
         @endif
@@ -1597,7 +1597,10 @@
                                 <span class="roster-avatar">{{ $row['initials'] }}</span>
                                 <div class="min-w-0">
                                     <div class="roster-person-name">{{ $row['employee'] }}</div>
-                                    <div class="roster-person-meta roster-person-company" title="{{ $row['company'] }}">{{ collect(preg_split('/\s+/', trim($row['company'] ?? '')))->map(fn($word) => strtoupper(substr($word, 0, 1)))->implode('') }}</div>
+                                    <div class="roster-person-meta roster-person-company" title="{{ $row['company'] }}">{{ $row['company'] }}</div>
+                                    @if (! empty($row['work_email']))
+                                        <div class="roster-person-meta roster-person-email" title="{{ $row['work_email'] }}">{{ $row['work_email'] }}</div>
+                                    @endif
                                 </div>
                             </div>
                             <div class="roster-person-hours">
@@ -1621,9 +1624,9 @@
                                 <div class="shift-stack">
                                     @foreach ($cellDiary as $diaryEntry)
                                         <div class="employee-diary-chip is-{{ $diaryEntry['type_class'] }}"
-                                            title="{{ $diaryEntry['type_label'] }}: {{ $diaryEntry['title'] }} â€” {{ $diaryEntry['time_label'] }}{{ $diaryEntry['notes'] ? ' â€” '.$diaryEntry['notes'] : '' }}">
+                                            title="{{ $diaryEntry['type_label'] }}: {{ $diaryEntry['title'] }} — {{ $diaryEntry['time_label'] }}{{ $diaryEntry['notes'] ? ' — '.$diaryEntry['notes'] : '' }}">
                                             <i class="fas {{ $diaryEntry['icon'] }}"></i>
-                                            <span>{{ $diaryEntry['title'] }} Â· {{ $diaryEntry['time_label'] }}</span>
+                                            <span>{{ $diaryEntry['title'] }} · {{ $diaryEntry['time_label'] }}</span>
                                         </div>
                                     @endforeach
                                     @if (! empty($cell['time_off']))
@@ -1780,7 +1783,7 @@
                             @endphp
                             <div class="area-row-head" data-area-key="{{ $areaKey }}" data-area-company-id="{{ $row['company_id'] ?? '' }}">
                                 <div class="area-row-name"><span class="area-name-swatch" style="background:{{ $row['area_color'] ?? '#64748b' }}"></span>{{ $row['area_name'] ?? $row['role'] }}</div>
-                                <div class="area-row-meta">{{ $row['company'] }} Â· {{ $row['role'] }}</div>
+                                <div class="area-row-meta">{{ $row['company'] }} · {{ $row['role'] }}</div>
                                 <div class="area-row-stats">
                                     <span><i class="fas fa-layer-group"></i> {{ $row['shift_count'] }} shift{{ $row['shift_count'] === 1 ? '' : 's' }}</span>
                                     <span><i class="fas fa-inbox"></i> {{ $row['open_shift_count'] }} open</span>
@@ -1941,7 +1944,7 @@
                                             <strong>{{ $diaryEntry['employee_name'] }}</strong>
                                             <span class="badge badge-{{ $diaryEntry['type_class'] === 'available' ? 'success' : ($diaryEntry['type_class'] === 'unavailable' ? 'danger' : 'warning') }}">{{ $diaryEntry['type_label'] }}</span>
                                         </div>
-                                        <div class="small font-weight-bold mt-1">{{ $diaryEntry['title'] }} Â· {{ $diaryEntry['time_label'] }}</div>
+                                        <div class="small font-weight-bold mt-1">{{ $diaryEntry['title'] }} · {{ $diaryEntry['time_label'] }}</div>
                                         @if ($diaryEntry['notes'])<div class="small text-muted mt-1">{{ $diaryEntry['notes'] }}</div>@endif
                                     </div>
                                 @endforeach
@@ -2196,7 +2199,7 @@
                                 <option value="day">Selected day only</option>
                                 <option value="two_weeks">Visible 2-week schedule</option>
                             </select>
-                            <small class="form-text text-muted">The two-week option copies all 14 visible days and preserves each shiftâ€™s day offset.</small>
+                            <small class="form-text text-muted">The two-week option copies all 14 visible days and preserves each shift’s day offset.</small>
                         </div>
                         <div class="copy-date-grid">
                             <div class="form-group mb-0">
@@ -2229,9 +2232,9 @@
             <div class="modal-body keyboard-help-list">
                 <div><kbd>Arrow keys</kbd><span>Move between roster cells</span></div>
                 <div><kbd>Enter</kbd><span>Add in a cell or edit a selected shift</span></div>
-                <div><kbd>Alt</kbd> + <kbd>â†</kbd>/<kbd>â†’</kbd><span>Move selected shift by one day</span></div>
-                <div><kbd>Alt</kbd> + <kbd>â†‘</kbd>/<kbd>â†“</kbd><span>Move selected shift by 15 minutes</span></div>
-                <div><kbd>Shift</kbd> + <kbd>Alt</kbd> + <kbd>â†‘</kbd>/<kbd>â†“</kbd><span>Resize selected shift by 15 minutes</span></div>
+                <div><kbd>Alt</kbd> + <kbd>←</kbd>/<kbd>→</kbd><span>Move selected shift by one day</span></div>
+                <div><kbd>Alt</kbd> + <kbd>↑</kbd>/<kbd>↓</kbd><span>Move selected shift by 15 minutes</span></div>
+                <div><kbd>Shift</kbd> + <kbd>Alt</kbd> + <kbd>↑</kbd>/<kbd>↓</kbd><span>Resize selected shift by 15 minutes</span></div>
                 <div><kbd>C</kbd>/<kbd>V</kbd><span>Copy and paste selected shift</span></div>
                 <div><kbd>Delete</kbd><span>Delete selected shift(s)</span></div>
             </div>
@@ -2250,7 +2253,7 @@
                     <p class="small text-muted">Only completed fields will be applied. Existing dates and other values stay unchanged.</p>
                     <div class="form-group"><label>Employee</label><select name="employee_id" class="form-control"><option value="">Keep current employee</option>@foreach($employees as $employee)<option value="{{ $employee['id'] }}">{{ $employee['name'] }}</option>@endforeach</select></div>
                     <div class="form-row"><div class="form-group col"><label>Role</label><select name="role_id" class="form-control"><option value="">Keep current role</option>@foreach($roles as $role)<option value="{{ $role['id'] }}">{{ $role['name'] }}</option>@endforeach</select></div><div class="form-group col"><label>Company</label><select name="company_id" class="form-control"><option value="">Keep current company</option>@foreach($companies as $company)<option value="{{ $company['id'] }}">{{ $company['name'] }}</option>@endforeach</select></div></div>
-                    <div class="form-group"><label>Work Location</label><select name="work_location_id" class="form-control"><option value="">Keep current work location</option>@foreach($workLocations as $location)<option value="{{ $location['id'] }}">{{ $location['name'] }}{{ $location['address'] ? ' Â· '.$location['address'] : '' }}</option>@endforeach</select></div>
+                    <div class="form-group"><label>Work Location</label><select name="work_location_id" class="form-control"><option value="">Keep current work location</option>@foreach($workLocations as $location)<option value="{{ $location['id'] }}">{{ $location['name'] }}{{ $location['address'] ? ' · '.$location['address'] : '' }}</option>@endforeach</select></div>
                     <div class="form-row"><div class="form-group col"><label>Start time</label><input type="time" name="start_time" class="form-control"></div><div class="form-group col"><label>End time</label><input type="time" name="end_time" class="form-control"></div></div>
                     <div class="form-group"><label>Title</label><input type="text" name="title" maxlength="120" class="form-control"></div>
                     <div class="form-group mb-0"><label>Note</label><textarea name="note" maxlength="2000" class="form-control" rows="2"></textarea></div>
@@ -2387,7 +2390,7 @@
                                             <option value="">Select company first</option>
                                             @foreach ($workLocations as $location)
                                                 <option value="{{ $location['id'] }}" data-company-id="{{ $location['company_id'] }}" data-location-type="{{ $location['location_type'] }}" data-location-address="{{ $location['address'] }}" {{ (string)old('work_location_id')===(string)$location['id']?'selected':'' }}>
-                                                    {{ $location['name'] }}{{ $location['address'] ? ' â€” '.$location['address'] : '' }}
+                                                    {{ $location['name'] }}{{ $location['address'] ? ' — '.$location['address'] : '' }}
                                                 </option>
                                             @endforeach
                                         </select>
@@ -2402,7 +2405,7 @@
                                         <label for="employee_id">Employee</label>
                                         <select name="employee_id" id="employee_id"
                                             class="form-control @error('employee_id') is-invalid @enderror">
-                                            
+                                            <option value="">Open shift (no employee)</option>
                                             @foreach ($employees as $employee)
                                                 <option value="{{ $employee['id'] }}"
                                                     data-company-id="{{ $employee['company_id'] ?? '' }}"
@@ -2412,8 +2415,8 @@
                                                 </option>
                                             @endforeach
                                         </select>
-                                        <input type="hidden" name="employee_id" id="employee_id_locked" value="">
                                         @error('employee_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                        <small class="form-text text-muted">Leave as open shift when the employee is not decided.</small>
                                     </div>
                                 </div>
                             </div>
@@ -2443,20 +2446,18 @@
                             <div class="form-row">
                                 <div class="form-group col-md-6">
                                     <label for="shift_date">Start Date</label>
-                                    <input type="date" id="shift_date_display"
+                                    <input type="date" name="shift_date" id="shift_date"
                                         class="form-control @error('shift_date') is-invalid @enderror"
-                                        value="{{ old('shift_date', $selectedCalendarDateValue) }}" disabled>
-                                    <input type="hidden" name="shift_date" id="shift_date" value="{{ old('shift_date', $selectedCalendarDateValue) }}">
+                                        value="{{ old('shift_date', $selectedCalendarDateValue) }}" required>
                                     @error('shift_date')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
                                 <div class="form-group col-md-6">
                                     <label for="shift_end_date">End Date</label>
-                                    <input type="date" id="shift_end_date_display"
+                                    <input type="date" name="shift_end_date" id="shift_end_date"
                                         class="form-control @error('shift_end_date') is-invalid @enderror"
-                                        value="{{ old('shift_end_date', old('shift_date', $selectedCalendarDateValue)) }}" disabled>
-                                    <input type="hidden" name="shift_end_date" id="shift_end_date" value="{{ old('shift_end_date', old('shift_date', $selectedCalendarDateValue)) }}">
+                                        value="{{ old('shift_end_date', old('shift_date', $selectedCalendarDateValue)) }}">
                                     @error('shift_end_date')
                                         <div class="invalid-feedback d-block">{{ $message }}</div>
                                     @enderror
@@ -2545,7 +2546,7 @@
                                     </option>
                                 @endforeach
                             </select>
-                            
+                            <small class="form-text text-muted">Leave blank to turn this into an open shift.</small>
                         </div>
 
                         <div id="editShiftDiaryContext" class="alert alert-warning d-none" role="status" aria-live="polite">
@@ -2559,7 +2560,7 @@
                             <select name="work_location_id" id="edit_work_location_id" class="form-control" required>
                                 <option value="">Select physical work location</option>
                                 @foreach($workLocations as $location)
-                                    <option value="{{ $location['id'] }}" data-company-id="{{ $location['company_id'] }}">{{ $location['name'] }}{{ $location['address'] ? ' Â· '.$location['address'] : '' }}</option>
+                                    <option value="{{ $location['id'] }}" data-company-id="{{ $location['company_id'] }}">{{ $location['name'] }}{{ $location['address'] ? ' · '.$location['address'] : '' }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -2631,7 +2632,6 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const employeeSelect = document.getElementById('employee_id');
-            const employeeLockedInput = document.getElementById('employee_id_locked');
             const roleSelect = document.getElementById('role_id');
             const companySelect = document.getElementById('company_id');
             const workLocationSelect = document.getElementById('work_location_id');
@@ -2759,7 +2759,7 @@
                     if (!companyId) {
                         locationPlaceholder.textContent = 'Select company first';
                     } else if (locationCount === 0) {
-                        locationPlaceholder.textContent = `Company location â€” ${companyName}`;
+                        locationPlaceholder.textContent = `Company location — ${companyName}`;
                         workLocationSelect.value = '';
                     } else {
                         locationPlaceholder.textContent = 'Select work location';
@@ -2827,9 +2827,6 @@
 
                 if (employeeSelect && Object.prototype.hasOwnProperty.call(data, 'employeeId')) {
                     employeeSelect.value = data.employeeId || '';
-                    if (employeeLockedInput) employeeLockedInput.value = data.employeeId || '';
-                    // Employee is selected from the roster table; lock it in the create form.
-                    employeeSelect.disabled = true;
                     autoSelectEmployeeWorkLocation();
                 }
 
@@ -3438,7 +3435,7 @@
 
                     const line = document.createElement('div');
                     line.className = conflicts ? 'font-weight-bold text-danger' : '';
-                    line.textContent = `${entry.type_label}: ${entry.title} Â· ${entry.time_label}${entry.notes ? ` â€” ${entry.notes}` : ''}`;
+                    line.textContent = `${entry.type_label}: ${entry.title} · ${entry.time_label}${entry.notes ? ` — ${entry.notes}` : ''}`;
                     createShiftDiaryContextBody.appendChild(line);
                 });
 
@@ -4164,7 +4161,7 @@
 
                     const line = document.createElement('div');
                     line.className = conflicts ? 'font-weight-bold text-danger' : '';
-                    line.textContent = `${entry.type_label}: ${entry.title} Â· ${entry.time_label}${entry.notes ? ` â€” ${entry.notes}` : ''}`;
+                    line.textContent = `${entry.type_label}: ${entry.title} · ${entry.time_label}${entry.notes ? ` — ${entry.notes}` : ''}`;
                     editShiftDiaryContextBody.appendChild(line);
                 });
 
@@ -4225,4 +4222,3 @@
         });
     </script>
 @endsection
-

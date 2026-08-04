@@ -1209,8 +1209,16 @@ class OdooManagerPlanningService
         $rows = [];
         $seenEmployeeIds = [];
 
-        // Open Shifts disabled: unassigned planning slots are intentionally hidden.
-        // They remain in the source system but are not displayed in the manager roster.
+        if (isset($shiftsByEmployeeAndDate[0])) {
+            $rows[] = $this->buildRosterRow([
+                'id' => 0,
+                'name' => 'Open Shifts',
+                'company' => 'Unassigned',
+                'company_id' => null,
+                'work_email' => '',
+                'is_open' => true,
+            ], $days, $shiftsByEmployeeAndDate[0]);
+        }
 
         foreach ($employees as $employee) {
             if (! isset($employee['id']) || ! is_numeric($employee['id'])) {

@@ -110,14 +110,42 @@ class EmployeeShiftController extends Controller
 
     public function openShifts(Request $request, OdooManagerPlanningService $planningService): View
     {
-        // Open Shifts disabled. Kept as a soft-delete endpoint for rollback compatibility.
-        abort(404);
+        $selectedDay = $this->resolveOpenShiftDay($request->query('day'));
+        $openShifts = [];
+        $odooShiftError = null;
+
+        try {
+            $openShifts = $planningService->getOpenShiftsForEmployee($request->user(), $selectedDay);
+        } catch (OdooException $exception) {
+            $odooShiftError = $exception->getMessage();
+        }
+
+        return view('admin.employee-shifts.open', [
+            'selectedDay' => $selectedDay,
+            'weekStart' => $selectedDay->copy()->startOfWeek(),
+            'weekEnd' => $selectedDay->copy()->endOfWeek(),
+            'openShifts' => $openShifts,
+            'odooShiftError' => $odooShiftError,
+        ]);
     }
 
     public function claimOpenShift(Request $request, OdooManagerPlanningService $planningService, SchedulePublishService $publishService, int $shift): RedirectResponse
     {
-        // Open Shifts disabled. Claiming unassigned shifts is no longer allowed.
-        abort(404);
+        $validated = $request->validate([
+            'day' => ['required', 'date_format:Y-m-d'],
+            'last_known_write_date' => ['required', 'string', 'max:40'],
+        ]);
+
+        try {
+            $planningService->claimOpenShift($request->user(), $shift, $validated['last_known_write_date']);
+            $publishService->recordOpenShiftClaim($shift, $request->user());
+        } catch (OdooException $exception) {
+            return redirect()->route('employee.open-shifts.index', ['day' => $validated['day']])
+                ->withErrors(['open_shift' => $exception->getMessage()]);
+        }
+
+        return redirect()->route('employee.open-shifts.index', ['day' => $validated['day']])
+            ->with('success', 'The open shift is now assigned to you.');
     }
 
     private function resolveOpenShiftDay(?string $day): Carbon

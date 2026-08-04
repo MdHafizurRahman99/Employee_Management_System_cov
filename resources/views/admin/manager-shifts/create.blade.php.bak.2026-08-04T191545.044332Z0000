@@ -2443,20 +2443,18 @@
                             <div class="form-row">
                                 <div class="form-group col-md-6">
                                     <label for="shift_date">Start Date</label>
-                                    <input type="date" id="shift_date_display"
+                                    <input type="date" name="shift_date" id="shift_date"
                                         class="form-control @error('shift_date') is-invalid @enderror"
-                                        value="{{ old('shift_date', $selectedCalendarDateValue) }}" disabled>
-                                    <input type="hidden" name="shift_date" id="shift_date" value="{{ old('shift_date', $selectedCalendarDateValue) }}">
+                                        value="{{ old('shift_date', $selectedCalendarDateValue) }}" required>
                                     @error('shift_date')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
                                 <div class="form-group col-md-6">
                                     <label for="shift_end_date">End Date</label>
-                                    <input type="date" id="shift_end_date_display"
+                                    <input type="date" name="shift_end_date" id="shift_end_date"
                                         class="form-control @error('shift_end_date') is-invalid @enderror"
-                                        value="{{ old('shift_end_date', old('shift_date', $selectedCalendarDateValue)) }}" disabled>
-                                    <input type="hidden" name="shift_end_date" id="shift_end_date" value="{{ old('shift_end_date', old('shift_date', $selectedCalendarDateValue)) }}">
+                                        value="{{ old('shift_end_date', old('shift_date', $selectedCalendarDateValue)) }}">
                                     @error('shift_end_date')
                                         <div class="invalid-feedback d-block">{{ $message }}</div>
                                     @enderror
@@ -2545,7 +2543,7 @@
                                     </option>
                                 @endforeach
                             </select>
-                            
+                            <small class="form-text text-muted">Leave blank to turn this into an open shift.</small>
                         </div>
 
                         <div id="editShiftDiaryContext" class="alert alert-warning d-none" role="status" aria-live="polite">
@@ -2631,7 +2629,6 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const employeeSelect = document.getElementById('employee_id');
-            const employeeLockedInput = document.getElementById('employee_id_locked');
             const roleSelect = document.getElementById('role_id');
             const companySelect = document.getElementById('company_id');
             const workLocationSelect = document.getElementById('work_location_id');
@@ -2827,7 +2824,6 @@
 
                 if (employeeSelect && Object.prototype.hasOwnProperty.call(data, 'employeeId')) {
                     employeeSelect.value = data.employeeId || '';
-                    if (employeeLockedInput) employeeLockedInput.value = data.employeeId || '';
                     // Employee is selected from the roster table; lock it in the create form.
                     employeeSelect.disabled = true;
                     autoSelectEmployeeWorkLocation();
