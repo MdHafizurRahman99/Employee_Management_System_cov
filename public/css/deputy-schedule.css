@@ -225,17 +225,13 @@
     min-height: 45px;
     min-width: 0;
     padding: 5px 4px;
-    border: 1px solid #35af5d;
-    border-left: 3px solid var(--shift-accent, #35af5d);
+    border: 1px solid var(--company-shift-border, #52b96b);
+    border-left: 3px solid var(--company-shift-accent, #35af5d);
     border-radius: 7px;
-    background: var(--deputy-green-soft);
+    background: var(--company-shift-bg, var(--deputy-green-soft));
     box-shadow: none;
-    color: var(--deputy-ink);
+    color: var(--company-shift-text, var(--deputy-ink));
 }
-.schedule-page .shift-card.shift-tone-blue { --shift-accent:#4d82df; background:#dff1dd; border-color:#52b96b; }
-.schedule-page .shift-card.shift-tone-amber { --shift-accent:#de8e2f; background:#dff1dd; border-color:#52b96b; }
-.schedule-page .shift-card.shift-tone-mint { --shift-accent:#bd4b9a; background:#dff1dd; border-color:#52b96b; }
-.schedule-page .shift-card.shift-tone-slate { --shift-accent:#72717d; background:#fff; border-color:#85848e; }
 .schedule-page .shift-card:hover { transform: none; box-shadow: 0 2px 7px rgba(31, 31, 52, .15); }
 .schedule-page .shift-time { padding-right: 0; font-size: .61rem; line-height: 1.15; font-weight: 900; overflow-wrap: anywhere; }
 .schedule-page .shift-role { font-size: .61rem; line-height: 1.2; font-weight: 500; overflow-wrap: anywhere; }

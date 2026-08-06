@@ -492,6 +492,33 @@
             font-weight: 900;
         }
 
+        .roster-day-counts {
+            display: flex;
+            align-items: center;
+            flex-wrap: nowrap;
+            gap: 0.35rem;
+            white-space: nowrap;
+        }
+
+        .roster-day-unavailable {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.18rem;
+            min-height: 1.05rem;
+            padding: 0 0.3rem;
+            border-radius: 999px;
+            background: #ede5ff;
+            color: #6b3ccf;
+            font-size: 0.62rem;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        .roster-day-unavailable i {
+            font-size: 0.56rem;
+        }
+
         .roster-person {
             min-height: 116px;
             padding: 0.9rem 1rem;
@@ -632,11 +659,11 @@
         .shift-card {
             position: relative;
             padding: 0.55rem 0.55rem 0.5rem;
-            border: 1px solid rgba(14, 124, 75, 0.18);
-            border-left: 4px solid var(--schedule-green);
+            border: 1px solid var(--company-shift-border, rgba(14, 124, 75, 0.18));
+            border-left: 4px solid var(--company-shift-accent, var(--schedule-green));
             border-radius: 6px;
-            background: #e9f8f0;
-            color: #174331;
+            background: var(--company-shift-bg, #e9f8f0);
+            color: var(--company-shift-text, #174331);
             box-shadow: 0 7px 14px rgba(22, 32, 29, 0.07);
             transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
         }
@@ -663,34 +690,6 @@
             opacity: 0.92;
             transform: scale(1.01);
             box-shadow: 0 14px 26px rgba(22, 32, 29, 0.16);
-        }
-
-        .shift-card.shift-tone-blue {
-            border-color: rgba(39, 116, 216, 0.2);
-            border-left-color: var(--schedule-blue);
-            background: #edf5ff;
-            color: #173d69;
-        }
-
-        .shift-card.shift-tone-amber {
-            border-color: rgba(217, 150, 34, 0.25);
-            border-left-color: var(--schedule-amber);
-            background: #fff6df;
-            color: #61430d;
-        }
-
-        .shift-card.shift-tone-mint {
-            border-color: rgba(25, 150, 132, 0.22);
-            border-left-color: #199684;
-            background: #e8f8f5;
-            color: #164a43;
-        }
-
-        .shift-card.shift-tone-slate {
-            border-color: rgba(84, 98, 111, 0.22);
-            border-left-color: #54626f;
-            background: #f1f4f6;
-            color: #28333d;
         }
 
         .shift-time {
@@ -921,38 +920,6 @@
             gap: 0.5rem;
         }
 
-        .roster-timeoff-label {
-            position: sticky;
-            left: 0;
-            z-index: 4;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            min-height: 62px;
-            padding: 0.75rem 1rem;
-            border-right: 1px solid var(--schedule-line);
-            border-bottom: 1px solid var(--schedule-line);
-            background: #fff7fb;
-            color: #7e365a;
-            font-size: 0.78rem;
-            font-weight: 900;
-        }
-
-        .roster-timeoff-day {
-            min-height: 62px;
-            padding: 0.55rem 0.6rem;
-            border-right: 1px solid var(--schedule-line);
-            border-bottom: 1px solid var(--schedule-line);
-            background: #fffafd;
-        }
-
-        .timeoff-day-stack {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-        }
-
-        .timeoff-day-chip,
         .timeoff-chip {
             display: inline-flex;
             align-items: center;
@@ -966,19 +933,16 @@
             white-space: nowrap;
         }
 
-        .timeoff-day-chip.is-approved,
         .timeoff-chip.is-approved {
             background: #ffe4ef;
             color: #a7346e;
         }
 
-        .timeoff-day-chip.is-pending,
         .timeoff-chip.is-pending {
             background: #fff4d9;
             color: #8a5b00;
         }
 
-        .timeoff-day-chip.is-unavailable,
         .timeoff-chip.is-unavailable {
             background: #ede5ff;
             color: #6b3ccf;
@@ -1114,7 +1078,7 @@
             }
         }
     </style>
-    <link rel="stylesheet" href="{{ asset('css/deputy-schedule.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/deputy-schedule.css') }}?v={{ filemtime(public_path('css/deputy-schedule.css')) }}">
 @endsection
 
 @section('content')
@@ -1150,6 +1114,23 @@
         $employeeDiaryByCell = $employeeDiary['by_employee_date'] ?? [];
         $employeeDiaryByDate = $employeeDiary['by_date'] ?? [];
         $viewQuery = ['view' => $selectedView];
+        $companyShiftStyles = [];
+        $defaultCompanyShiftStyle = '--company-shift-accent:#64748b;--company-shift-border:#cbd5e1;--company-shift-bg:#f1f5f9;--company-shift-text:#253247;border-color:#cbd5e1;border-left-color:#64748b;background:#f1f5f9;color:#253247;';
+
+        foreach (collect($companies)->sortBy(fn ($company) => (int) ($company['id'] ?? 0))->values() as $companyIndex => $company) {
+            $companyId = (string) ($company['id'] ?? '');
+
+            if ($companyId === '') {
+                continue;
+            }
+
+            // 137 and 360 are coprime, producing a distinct, evenly distributed hue for each company.
+            $companyHue = (210 + ($companyIndex * 137)) % 360;
+            $companyShiftStyles[$companyId] = sprintf(
+                '--company-shift-accent:hsl(%1$d,64%%,40%%);--company-shift-border:hsl(%1$d,48%%,76%%);--company-shift-bg:hsl(%1$d,68%%,94%%);--company-shift-text:hsl(%1$d,56%%,22%%);border-color:hsl(%1$d,48%%,76%%);border-left-color:hsl(%1$d,64%%,40%%);background:hsl(%1$d,68%%,94%%);color:hsl(%1$d,56%%,22%%);',
+                $companyHue
+            );
+        }
     @endphp
 
     <div class="container-fluid schedule-page">
@@ -1525,6 +1506,10 @@
                     </div>
 
                     @foreach ($rosterDays as $day)
+                        @php
+                            $dayTimeOff = $timeOffDays[$day['date_value']] ?? ['unavailable_count' => 0];
+                            $dayUnavailableCount = $dayTimeOff['unavailable_count'] ?? 0;
+                        @endphp
                         <a href="{{ route('manager.shifts.create', array_merge($viewQuery, ['month' => $day['date']->format('Y-m'), 'day' => $day['date_value']])) }}"
                             class="roster-day-head {{ $day['is_today'] ? 'is-today' : '' }} {{ $day['is_selected'] ? 'is-selected' : '' }}" data-schedule-date="{{ $day['date_value'] }}">
                             <div class="roster-day-top">
@@ -1534,49 +1519,21 @@
                                 </div>
                                 <span class="roster-day-total">{{ $day['hours_label'] }}</span>
                             </div>
-                            <div class="small text-muted font-weight-bold mt-1">
-                                {{ $day['shift_count'] }} shift{{ $day['shift_count'] === 1 ? '' : 's' }}
+                            <div class="roster-day-counts small text-muted font-weight-bold mt-1">
+                                <span>{{ $day['shift_count'] }} shift{{ $day['shift_count'] === 1 ? '' : 's' }}</span>
+                                @if ($dayUnavailableCount > 0)
+                                    <span class="roster-day-unavailable"
+                                        title="{{ $dayUnavailableCount }} unavailable"
+                                        aria-label="{{ $dayUnavailableCount }} unavailable">
+                                        <i class="fas fa-user-clock"></i>
+                                        {{ $dayUnavailableCount }}
+                                    </span>
+                                @endif
                             </div>
                             @if(!empty($day['holiday_labels']) || !empty($day['has_day_note']) || !empty($day['blocked_labels']))
                                 <div class="day-signal-row">@if(!empty($day['holiday_labels']))<span class="day-signal is-holiday"><i class="fas fa-star"></i>{{ implode(', ',$day['holiday_labels']) }}</span>@endif @if(!empty($day['has_day_note']))<span class="day-signal" title="Day note"><i class="fas fa-sticky-note"></i></span>@endif @if(!empty($day['blocked_labels']))<span class="day-signal is-blocked" title="Blocked {{ implode(', ',$day['blocked_labels']) }}"><i class="fas fa-ban"></i></span>@endif</div>
                             @endif
                         </a>
-                    @endforeach
-
-                    <div class="roster-timeoff-label">
-                        <span>Time Off</span>
-                        <span>{{ $approvedLeaveCount + $pendingLeaveCount + $unavailablePeopleCount }}</span>
-                    </div>
-
-                    @foreach ($rosterDays as $day)
-                        @php
-                            $dayTimeOff = $timeOffDays[$day['date_value']] ?? ['approved_leave_count' => 0, 'pending_leave_count' => 0, 'unavailable_count' => 0];
-                        @endphp
-                        <div class="roster-timeoff-day">
-                            <div class="timeoff-day-stack">
-                                @if (($dayTimeOff['approved_leave_count'] ?? 0) > 0)
-                                    <span class="timeoff-day-chip is-approved">
-                                        <i class="fas fa-plane-departure"></i>
-                                        {{ $dayTimeOff['approved_leave_count'] }} approved
-                                    </span>
-                                @endif
-                                @if (($dayTimeOff['pending_leave_count'] ?? 0) > 0)
-                                    <span class="timeoff-day-chip is-pending">
-                                        <i class="fas fa-hourglass-half"></i>
-                                        {{ $dayTimeOff['pending_leave_count'] }} pending
-                                    </span>
-                                @endif
-                                @if (($dayTimeOff['unavailable_count'] ?? 0) > 0)
-                                    <span class="timeoff-day-chip is-unavailable">
-                                        <i class="fas fa-user-clock"></i>
-                                        {{ $dayTimeOff['unavailable_count'] }} unavailable
-                                    </span>
-                                @endif
-                                @if (($dayTimeOff['approved_leave_count'] ?? 0) === 0 && ($dayTimeOff['pending_leave_count'] ?? 0) === 0 && ($dayTimeOff['unavailable_count'] ?? 0) === 0)
-                                    
-                                @endif
-                            </div>
-                        </div>
                     @endforeach
 
                     @forelse ($rosterRows as $rowIndex => $row)
@@ -1588,6 +1545,8 @@
                             data-roster-key="{{ $rowKey }}"
                             data-roster-search="{{ $rowSearch }}"
                             data-roster-company-id="{{ $row['company_id'] ?? '' }}"
+                            data-roster-company-ids="{{ implode(',', $row['covered_company_ids'] ?? array_filter([$row['company_id'] ?? null])) }}"
+                            data-roster-all-companies="{{ ($row['company_coverage_scope'] ?? 'single') === 'all' ? '1' : '0' }}"
                             data-roster-work-location-id="{{ $row['work_location_id'] ?? '' }}"
                             data-roster-has-shifts="{{ $row['shift_count'] > 0 ? '1' : '0' }}"
                             data-roster-open="{{ $row['is_open'] ? '1' : '0' }}"
@@ -1645,7 +1604,7 @@
                                     @endif
 
                                     @foreach ($cell['shifts'] as $shift)
-                                        <div class="shift-card shift-tone-{{ $shift['tone'] ?? 'green' }}" tabindex="0" role="button" aria-label="{{ $shift['role'] }} shift, {{ $shift['time_label'] }}, {{ $shift['publish_state_label'] ?? 'Unpublished' }}"
+                                        <div class="shift-card" style="{{ $companyShiftStyles[(string) ($shift['company_id'] ?? '')] ?? $defaultCompanyShiftStyle }}" tabindex="0" role="button" aria-label="{{ $shift['role'] }} shift, {{ $shift['time_label'] }}, {{ $shift['publish_state_label'] ?? 'Unpublished' }}"
                                             data-roster-key="{{ $rowKey }}"
                                             data-shift-id="{{ $shift['id'] }}"
                                             data-role-id="{{ $shift['role_id'] ?? '' }}"
@@ -1812,7 +1771,7 @@
                                     @endif
                                     <div class="shift-stack">
                                         @foreach ($cell['shifts'] as $shift)
-                                            <div class="shift-card shift-tone-{{ $shift['tone'] ?? 'green' }}" tabindex="0" role="button" aria-label="{{ $shift['employee'] ?: 'Open shift' }}, {{ $shift['time_label'] }}, {{ $shift['publish_state_label'] ?? 'Unpublished' }}"
+                                            <div class="shift-card" style="{{ $companyShiftStyles[(string) ($shift['company_id'] ?? '')] ?? $defaultCompanyShiftStyle }}" tabindex="0" role="button" aria-label="{{ $shift['employee'] ?: 'Open shift' }}, {{ $shift['time_label'] }}, {{ $shift['publish_state_label'] ?? 'Unpublished' }}"
                                                 data-area-key="{{ $areaKey }}"
                                                 data-shift-id="{{ $shift['id'] }}"
                                                 data-role-id="{{ $shift['role_id'] ?? '' }}"
@@ -2406,7 +2365,10 @@
                                             @foreach ($employees as $employee)
                                                 <option value="{{ $employee['id'] }}"
                                                     data-company-id="{{ $employee['company_id'] ?? '' }}"
+                                                    data-company-ids="{{ implode(',', $employee['covered_company_ids'] ?? array_filter([$employee['company_id'] ?? null])) }}"
+                                                    data-all-companies="{{ ($employee['company_coverage_scope'] ?? 'single') === 'all' ? '1' : '0' }}"
                                                     data-work-location-id="{{ $employee['work_location_id'] ?? '' }}"
+                                                    data-default-role-id="{{ $employee['default_role_id'] ?? $employee['planning_role_ids'][0] ?? '' }}"
                                                     {{ (string) old('employee_id') === (string) $employee['id'] ? 'selected' : '' }}>
                                                     {{ $employee['name'] }}
                                                 </option>
@@ -2425,7 +2387,7 @@
                             </div>
 
                             <div class="form-group">
-                                <label for="role_id">Role</label>
+                                <label for="role_id">Acting Role</label>
                                 <select name="role_id" id="role_id"
                                     class="form-control @error('role_id') is-invalid @enderror" required>
                                     <option value="">Select company first</option>
@@ -2540,7 +2502,11 @@
                             <select name="employee_id" id="edit_employee_id" class="form-control">
                                 <option value="">Select employee</option>
                                 @foreach ($employees as $employee)
-                                    <option value="{{ $employee['id'] }}" data-company-id="{{ $employee['company_id'] ?? '' }}" data-work-location-id="{{ $employee['work_location_id'] ?? '' }}">
+                                    <option value="{{ $employee['id'] }}"
+                                        data-company-id="{{ $employee['company_id'] ?? '' }}"
+                                        data-company-ids="{{ implode(',', $employee['covered_company_ids'] ?? array_filter([$employee['company_id'] ?? null])) }}"
+                                        data-all-companies="{{ ($employee['company_coverage_scope'] ?? 'single') === 'all' ? '1' : '0' }}"
+                                        data-work-location-id="{{ $employee['work_location_id'] ?? '' }}">
                                         {{ $employee['name'] }}{{ $employee['company'] ? ' - '.$employee['company'] : '' }}
                                     </option>
                                 @endforeach
@@ -2724,15 +2690,26 @@
 
             const selectedOption = (select) => select?.options[select.selectedIndex] || null;
 
+            const companyIdsForOption = (option) => (option?.dataset.companyIds || option?.dataset.companyId || '')
+                .split(',')
+                .filter(Boolean);
+
+            const optionCoversCompany = (option, companyId, includeShared = false) => {
+                if (!option || !companyId) return false;
+                const companyIds = companyIdsForOption(option);
+
+                return option.dataset.allCompanies === '1'
+                    || companyIds.includes(String(companyId))
+                    || (includeShared && companyIds.length === 0);
+            };
+
             const filterCompanyOptions = (select, companyId, includeShared = false) => {
                 if (!select) return 0;
                 let available = 0;
 
                 Array.from(select.options).forEach((option) => {
                     if (!option.value) return;
-                    const optionCompanyId = option.dataset.companyId || '';
-                    const matches = Boolean(companyId)
-                        && (optionCompanyId === companyId || (includeShared && !optionCompanyId));
+                    const matches = optionCoversCompany(option, companyId, includeShared);
                     option.disabled = !matches;
                     option.hidden = !matches;
                     if (matches) available++;
@@ -2773,7 +2750,7 @@
 
                 if (employeeSelect) employeeSelect.disabled = !companyId;
                 if (roleSelect) roleSelect.disabled = !companyId;
-                if (rolePlaceholder) rolePlaceholder.textContent = companyId ? 'Select role' : 'Select company first';
+                if (rolePlaceholder) rolePlaceholder.textContent = companyId ? 'Select acting role' : 'Select company first';
 
                 const workLocationHelp = document.getElementById('workLocationHelp');
                 if (workLocationHelp) {
@@ -2784,7 +2761,14 @@
             };
 
             const selectCompanyFrom = (sourceSelect) => {
-                const companyId = selectedOption(sourceSelect)?.dataset.companyId || '';
+                const sourceOption = selectedOption(sourceSelect);
+                const currentCompanyId = companySelect?.value || '';
+
+                if (currentCompanyId && optionCoversCompany(sourceOption, currentCompanyId, true)) {
+                    return;
+                }
+
+                const companyId = sourceOption?.dataset.companyId || companyIdsForOption(sourceOption)[0] || '';
                 if (companyId && companySelect && companySelect.value !== companyId) {
                     companySelect.value = companyId;
                     syncCompanyDependencies();
@@ -2800,6 +2784,16 @@
                         .find((candidate) => candidate.value === locationId && !candidate.disabled);
                     if (locationOption) workLocationSelect.value = locationId;
                 }
+            };
+
+            const autoSelectEmployeeRole = () => {
+                if (!employeeSelect || !roleSelect) return;
+
+                const defaultRoleId = selectedOption(employeeSelect)?.dataset.defaultRoleId || '';
+                const defaultRoleOption = Array.from(roleSelect.options)
+                    .find((option) => option.value === defaultRoleId && !option.disabled);
+
+                roleSelect.value = defaultRoleOption?.value || '';
             };
 
             const prefillCreateShift = (data) => {
@@ -2831,8 +2825,10 @@
                     // Employee is selected from the roster table; lock it in the create form.
                     employeeSelect.disabled = true;
                     autoSelectEmployeeWorkLocation();
+                    autoSelectEmployeeRole();
                 }
 
+                // Explicit roles from templates, copied shifts, and Area cells override the employee default.
                 if (roleSelect && data.roleId) roleSelect.value = data.roleId;
 
                 if (workLocationSelect && data.workLocationId) {
@@ -3450,6 +3446,7 @@
                 employeeSelect.addEventListener('change', function() {
                     selectCompanyFrom(employeeSelect);
                     autoSelectEmployeeWorkLocation();
+                    autoSelectEmployeeRole();
                     updateDiaryContext();
                 });
             }
@@ -3617,8 +3614,13 @@
 
                     const matchesSearch = !query || haystack.includes(query);
                     const matchesEmpty = status === 'empty' ? !rowIsOpen && !rowHasShifts : true;
-                    const matchesCompanyRow = (!companyId || row.dataset.rosterCompanyId === companyId || matchingCards > 0)
-                        && (!hasCompanyScope || selectedCompanyIds.has(row.dataset.rosterCompanyId) || matchingCards > 0);
+                    const rowCompanyIds = (row.dataset.rosterCompanyIds || row.dataset.rosterCompanyId || '').split(',').filter(Boolean);
+                    const rowCoversAllCompanies = row.dataset.rosterAllCompanies === '1';
+                    const rowMatchesCompany = !companyId || rowCoversAllCompanies || rowCompanyIds.includes(companyId);
+                    const rowMatchesCompanyScope = !hasCompanyScope || rowCoversAllCompanies
+                        || rowCompanyIds.some((rowCompanyId) => selectedCompanyIds.has(rowCompanyId));
+                    const matchesCompanyRow = (rowMatchesCompany || matchingCards > 0)
+                        && (rowMatchesCompanyScope || matchingCards > 0);
                     const matchesShiftFilter = hasShiftFilter ? matchingCards > 0 : true;
                     const shouldHide = !matchesSearch || !matchesEmpty || !matchesCompanyRow || !matchesShiftFilter;
 
@@ -4181,6 +4183,18 @@
                 });
                 const selected = editWorkLocationSelect.options[editWorkLocationSelect.selectedIndex];
                 if (selected && selected.value && selected.disabled) editWorkLocationSelect.value = '';
+
+                if (editEmployeeSelect) {
+                    Array.from(editEmployeeSelect.options).forEach((option) => {
+                        if (!option.value) return;
+                        const matches = optionCoversCompany(option, editCompanySelect.value);
+                        option.disabled = !matches;
+                        option.hidden = !matches;
+                    });
+
+                    const selectedEmployee = editEmployeeSelect.options[editEmployeeSelect.selectedIndex];
+                    if (selectedEmployee?.value && selectedEmployee.disabled) editEmployeeSelect.value = '';
+                }
             };
             if (editCompanySelect) editCompanySelect.addEventListener('change', syncEditWorkLocationOptions);
             [editEmployeeSelect, editShiftDateInput, editStartTimeInput, editEndTimeInput].forEach((control) => {

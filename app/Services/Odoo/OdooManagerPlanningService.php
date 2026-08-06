@@ -68,6 +68,7 @@ class OdooManagerPlanningService
         $calendar = $this->calendarBuilder()->build($month, $recentShifts, $selectedDay);
         $employees = $this->getSelectableEmployees();
         $roles = $this->getSelectableRoles();
+        $employees = $this->withDefaultPlanningRoles($employees, $roles);
         $timeOff = $this->buildWeeklyTimeOffData($calendar['selected_date'], $employees);
         $employeeDiary = [
             'entries' => [],
@@ -226,10 +227,9 @@ class OdooManagerPlanningService
     /** @param array<string,mixed> $employee @param array<string,mixed> $shift */
     private function employeeCanWorkShift(array $employee, array $shift): bool
     {
-        $employeeCompanyId = (int) ($employee['company_id'] ?? 0);
         $shiftCompanyId = (int) ($shift['company_id'] ?? 0);
 
-        if ($employeeCompanyId > 0 && $shiftCompanyId > 0 && $employeeCompanyId !== $shiftCompanyId) {
+        if (! $this->employeeCoversCompany($employee, $shiftCompanyId)) {
             return false;
         }
 
@@ -302,9 +302,8 @@ class OdooManagerPlanningService
             throw new OdooException('Please choose a valid company.');
         }
 
-        if ($employee && (int) ($employee['company_id'] ?? 0) > 0
-            && (int) $employee['company_id'] !== (int) $company['id']) {
-            throw new OdooException('The selected employee belongs to a different company.');
+        if ($employee && ! $this->employeeCoversCompany($employee, (int) $company['id'])) {
+            throw new OdooException('The selected employee is not covered to work for this company.');
         }
 
         $companyHasWorkLocations = (bool) array_filter(
@@ -407,6 +406,10 @@ class OdooManagerPlanningService
             throw new OdooException('Please choose a valid company.');
         }
 
+        if ($employee && ! $this->employeeCoversCompany($employee, (int) $company['id'])) {
+            throw new OdooException('The selected employee is not covered to work for this company.');
+        }
+
         if (! $workLocation) {
             throw new OdooException('Please choose a valid Odoo work location.');
         }
@@ -495,9 +498,14 @@ class OdooManagerPlanningService
             $this->resolveField($fields, ['name']),
             $this->resolveField($fields, ['resource_id']),
             $this->resolveField($fields, ['company_id']),
+            $this->resolveField($fields, ['company_assignment_scope']),
+            $this->resolveField($fields, ['work_company_ids']),
             $this->resolveField($fields, ['work_email']),
             $this->resolveField($fields, ['active']),
             $this->resolveField($fields, ['planning_role_ids', 'role_ids']),
+            $this->resolveField($fields, ['default_planning_role_id', 'planning_role_id', 'default_role_id', 'role_id']),
+            $this->resolveField($fields, ['job_id']),
+            $this->resolveField($fields, ['job_title']),
             $this->resolveField($fields, ['work_location_id']),
         ])));
 
@@ -528,7 +536,44 @@ class OdooManagerPlanningService
 
             $resource = $this->extractManyToOne($record['resource_id'] ?? null);
             $company = $this->extractManyToOne($record['company_id'] ?? null);
+            $job = $this->extractManyToOne($record['job_id'] ?? null);
             $workLocation = $this->extractManyToOne($record['work_location_id'] ?? null);
+            $planningRoleValue = $record['planning_role_ids']
+                ?? $record['role_ids']
+                ?? null;
+            $defaultPlanningRole = $this->extractManyToOne(
+                $record['default_planning_role_id']
+                    ?? $record['planning_role_id']
+                    ?? $record['default_role_id']
+                    ?? $record['role_id']
+                    ?? null
+            );
+            $planningRoleIds = [];
+
+            if (is_array($planningRoleValue)) {
+                // Odoo returns many2many values as IDs and many2one values as [id, name].
+                $planningRoleIds = isset($planningRoleValue[1]) && is_string($planningRoleValue[1])
+                    ? [(int) ($planningRoleValue[0] ?? 0)]
+                    : array_map('intval', $planningRoleValue);
+                $planningRoleIds = array_values(array_filter($planningRoleIds));
+            } elseif (is_numeric($planningRoleValue)) {
+                $planningRoleIds = [(int) $planningRoleValue];
+            }
+
+            if (! empty($defaultPlanningRole['id'])) {
+                array_unshift($planningRoleIds, (int) $defaultPlanningRole['id']);
+                $planningRoleIds = array_values(array_unique($planningRoleIds));
+            }
+
+            $jobTitle = trim((string) ($record['job_title'] ?? ''));
+            $companyCoverageScope = (string) ($record['company_assignment_scope'] ?? 'single');
+            $coveredCompanyIds = is_array($record['work_company_ids'] ?? null)
+                ? array_values(array_filter(array_map('intval', $record['work_company_ids'])))
+                : [];
+
+            if (! empty($company['id']) && ! in_array((int) $company['id'], $coveredCompanyIds, true)) {
+                $coveredCompanyIds[] = (int) $company['id'];
+            }
 
             return [
                 'id' => (int) $record['id'],
@@ -537,14 +582,79 @@ class OdooManagerPlanningService
                 'resource_name' => $resource['name'],
                 'company_id' => $company['id'],
                 'company' => $company['name'] ?? 'N/A',
+                'company_coverage_scope' => $companyCoverageScope,
+                'covered_company_ids' => array_values(array_unique($coveredCompanyIds)),
                 'work_email' => (string) ($record['work_email'] ?? ''),
-                'planning_role_ids' => is_array(($record['planning_role_ids'] ?? $record['role_ids'] ?? null))
-                    ? array_values(array_filter(array_map('intval', $record['planning_role_ids'] ?? $record['role_ids'])))
-                    : [],
+                'planning_role_ids' => $planningRoleIds,
+                'default_planning_role_id' => $defaultPlanningRole['id'],
+                'job_id' => $job['id'],
+                'job' => $job['name'] ?? ($jobTitle !== '' ? $jobTitle : ''),
                 'work_location_id' => $workLocation['id'],
                 'work_location' => $workLocation['name'],
             ];
         }, $records)));
+    }
+
+    /**
+     * Attach the Odoo role used as the default Acting Role in the create-shift form.
+     * Planning roles take priority; the employee's Odoo job is used as a name-matched fallback.
+     *
+     * @param  array<int, array<string, mixed>>  $employees
+     * @param  array<int, array<string, mixed>>  $roles
+     * @return array<int, array<string, mixed>>
+     */
+    private function withDefaultPlanningRoles(array $employees, array $roles): array
+    {
+        foreach ($employees as &$employee) {
+            $eligibleRoles = array_values(array_filter($roles, function (array $role) use ($employee): bool {
+                $roleCompanyId = (int) ($role['company_id'] ?? 0);
+
+                return $roleCompanyId === 0 || $this->employeeCoversCompany($employee, $roleCompanyId);
+            }));
+            $planningRoleIds = array_map('intval', $employee['planning_role_ids'] ?? []);
+            $defaultRole = null;
+
+            foreach ($planningRoleIds as $planningRoleId) {
+                $defaultRole = collect($eligibleRoles)->first(
+                    fn (array $role): bool => (int) ($role['id'] ?? 0) === $planningRoleId
+                );
+
+                if ($defaultRole) {
+                    break;
+                }
+            }
+
+            if (! $defaultRole && trim((string) ($employee['job'] ?? '')) !== '') {
+                $jobName = mb_strtolower(trim((string) $employee['job']));
+                $defaultRole = collect($eligibleRoles)->first(
+                    fn (array $role): bool => mb_strtolower(trim((string) ($role['name'] ?? ''))) === $jobName
+                );
+            }
+
+            $employee['default_role_id'] = $defaultRole['id'] ?? null;
+        }
+        unset($employee);
+
+        return $employees;
+    }
+
+    /** @param array<string,mixed> $employee */
+    private function employeeCoversCompany(array $employee, int $companyId): bool
+    {
+        if ($companyId <= 0 || ($employee['company_coverage_scope'] ?? 'single') === 'all') {
+            return true;
+        }
+
+        $coveredCompanyIds = array_values(array_filter(array_map(
+            'intval',
+            $employee['covered_company_ids'] ?? []
+        )));
+
+        if ($coveredCompanyIds === [] && ! empty($employee['company_id'])) {
+            $coveredCompanyIds[] = (int) $employee['company_id'];
+        }
+
+        return in_array($companyId, $coveredCompanyIds, true);
     }
 
     /**
@@ -1333,6 +1443,8 @@ class OdooManagerPlanningService
             'employee' => $name,
             'company' => (string) ($employee['company'] ?? 'N/A'),
             'company_id' => isset($employee['company_id']) && is_numeric($employee['company_id']) ? (int) $employee['company_id'] : null,
+            'company_coverage_scope' => (string) ($employee['company_coverage_scope'] ?? 'single'),
+            'covered_company_ids' => array_values(array_map('intval', $employee['covered_company_ids'] ?? [])),
             'work_location_id' => isset($employee['work_location_id']) && is_numeric($employee['work_location_id']) ? (int) $employee['work_location_id'] : null,
             'work_location' => (string) ($employee['work_location'] ?? ''),
             'work_email' => (string) ($employee['work_email'] ?? ''),
