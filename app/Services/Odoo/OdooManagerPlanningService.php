@@ -58,18 +58,25 @@ class OdooManagerPlanningService
      *     weeklyAreaBoard:array<string, mixed>
      * }
      */
-    public function getShiftCreationPageDataForMonth(Carbon $month, ?Carbon $selectedDay = null): array
+    public function getShiftCreationPageDataForMonth(
+        Carbon $month,
+        ?Carbon $selectedDay = null,
+        ?Carbon $periodStart = null,
+        ?Carbon $periodEnd = null
+    ): array
     {
         $month = $month->copy()->startOfMonth();
         $rangeAnchor = $selectedDay?->copy()
             ?? (now()->isSameMonth($month) ? now() : $month->copy()->startOfMonth());
-        $recentShifts = $this->getRecentShifts($month, $rangeAnchor);
+        $periodStart = ($periodStart ?? $rangeAnchor)->copy()->startOfWeek();
+        $periodEnd = ($periodEnd ?? $periodStart->copy()->addDays(self::VISIBLE_PERIOD_DAYS - 1))->copy()->endOfWeek();
+        $recentShifts = $this->getRecentShifts($month, $periodStart, $periodEnd);
         $recentShifts = $this->publishService()->decorateShifts($recentShifts);
         $calendar = $this->calendarBuilder()->build($month, $recentShifts, $selectedDay);
         $employees = $this->getSelectableEmployees();
         $roles = $this->getSelectableRoles();
         $employees = $this->withDefaultPlanningRoles($employees, $roles);
-        $timeOff = $this->buildWeeklyTimeOffData($calendar['selected_date'], $employees);
+        $timeOff = $this->buildWeeklyTimeOffData($calendar['selected_date'], $employees, $periodStart, $periodEnd);
         $employeeDiary = [
             'entries' => [],
             'by_employee_date' => [],
@@ -81,8 +88,8 @@ class OdooManagerPlanningService
         if ($this->scheduleEntryService) {
             try {
                 $employeeDiary = $this->scheduleEntryService->getForManagerRange(
-                    $calendar['selected_date']->copy()->startOfWeek(),
-                    $this->visiblePeriodEnd($calendar['selected_date']),
+                    $periodStart,
+                    $periodEnd,
                     array_values(array_filter(array_map(
                         fn (array $employee): int => (int) ($employee['id'] ?? 0),
                         $employees
@@ -106,8 +113,8 @@ class OdooManagerPlanningService
             'selectedCalendarDateLabel' => $calendar['selected_date_label'],
             'selectedCalendarDateValue' => $calendar['selected_date_value'],
             'selectedCalendarShifts' => $calendar['selected_date_shifts'],
-            'weeklyRoster' => $this->buildWeeklyRoster($calendar['selected_date'], $employees, $recentShifts, $timeOff),
-            'weeklyAreaBoard' => $this->buildWeeklyAreaBoard($calendar['selected_date'], $roles, $recentShifts),
+            'weeklyRoster' => $this->buildWeeklyRoster($calendar['selected_date'], $employees, $recentShifts, $timeOff, $periodStart, $periodEnd),
+            'weeklyAreaBoard' => $this->buildWeeklyAreaBoard($calendar['selected_date'], $roles, $recentShifts, $periodStart, $periodEnd),
             'employeeDiary' => $employeeDiary,
             'employeeDiaryError' => $employeeDiaryError,
         ];
@@ -133,7 +140,7 @@ class OdooManagerPlanningService
     }
 
     /**
-     * Return every shift in the same 14-day window shown on the manager schedule.
+     * Return every shift in the default 14-day window shown on the manager schedule.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -142,8 +149,16 @@ class OdooManagerPlanningService
         $selectedDate = $selectedDate->copy()->startOfDay();
         $periodStart = $selectedDate->copy()->startOfWeek();
         $periodEnd = $this->visiblePeriodEnd($selectedDate);
+        return $this->getShiftsForRange($periodStart, $periodEnd);
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    public function getShiftsForRange(Carbon $periodStart, Carbon $periodEnd): array
+    {
+        $periodStart = $periodStart->copy()->startOfDay();
+        $periodEnd = $periodEnd->copy()->endOfDay();
         $recentShifts = $this->publishService()->decorateShifts(
-            $this->getRecentShifts($selectedDate->copy()->startOfMonth(), $selectedDate)
+            $this->getRecentShifts($periodStart->copy()->startOfMonth(), $periodStart, $periodEnd)
         );
 
         return array_values(array_filter($recentShifts, function (array $shift) use ($periodStart, $periodEnd): bool {
@@ -762,7 +777,7 @@ class OdooManagerPlanningService
     /**
      * @return array<int, array<string, mixed>>
      */
-    private function getRecentShifts(Carbon $month, ?Carbon $rangeAnchor = null): array
+    private function getRecentShifts(Carbon $month, ?Carbon $rangeAnchor = null, ?Carbon $rangeLimit = null): array
     {
         $fields = $this->planningFields();
         $startField = $this->resolveField($fields, ['start_datetime', 'start_dt', 'start_date']);
@@ -777,18 +792,15 @@ class OdooManagerPlanningService
 
         if ($rangeAnchor) {
             $rangeStart = $rangeStart->min($rangeAnchor->copy()->startOfWeek());
-            $rangeEnd = $rangeEnd->max($this->visiblePeriodEnd($rangeAnchor)->endOfDay());
+            $rangeEnd = $rangeEnd->max(($rangeLimit ?? $this->visiblePeriodEnd($rangeAnchor))->copy()->endOfDay());
         }
 
-        $records = $this->serviceAccount->executeKw(
-            'planning.slot',
-            'search_read',
-            [[
-                [$startField, '>=', $rangeStart->toDateTimeString()],
-                [$startField, '<=', $rangeEnd->toDateTimeString()],
-            ]],
-            [
-                'fields' => array_values(array_filter(array_unique([
+        $domain = [[
+            $startField, '>=', $rangeStart->toDateTimeString()
+        ], [
+            $startField, '<=', $rangeEnd->toDateTimeString()
+        ]];
+        $requestedFields = array_values(array_filter(array_unique([
                     'id',
                     $startField,
                     $endField,
@@ -800,14 +812,32 @@ class OdooManagerPlanningService
                     $this->resolveField($fields, ['employee_id']),
                     $this->resolveField($fields, ['ems_work_location_id']),
                     ...array_values(array_intersect(['ems_work_location_id','ems_publish_state','ems_published_at','ems_published_by','ems_requires_confirmation','ems_confirmation_status','ems_confirmation_note','ems_confirmation_responded_at','ems_confirmation_responded_by','ems_was_open_shift_claim','ems_claimed_at','ems_claimed_by','ems_notification_mode','ems_notification_status','ems_notification_sent_at','ems_reminder_sent_at','ems_notification_error'], array_keys($fields))),
-                ]))),
-                'order' => $startField.' asc',
-                'limit' => 500,
-            ]
-        );
+                ])));
+        $records = [];
+        $pageSize = 500;
 
-        if (! is_array($records)) {
-            return [];
+        for ($offset = 0; ; $offset += $pageSize) {
+            $page = $this->serviceAccount->executeKw(
+                'planning.slot',
+                'search_read',
+                [$domain],
+                [
+                'fields' => $requestedFields,
+                'order' => $startField.' asc',
+                'limit' => $pageSize,
+                'offset' => $offset,
+                ]
+            );
+
+            if (! is_array($page)) {
+                return [];
+            }
+
+            $records = array_merge($records, $page);
+
+            if (count($page) < $pageSize) {
+                break;
+            }
         }
 
         return array_values(array_filter(array_map(
@@ -1242,10 +1272,17 @@ class OdooManagerPlanningService
      * @param  array<int, array<string, mixed>>  $shifts
      * @return array<string, mixed>
      */
-    private function buildWeeklyRoster(Carbon $selectedDate, array $employees, array $shifts, array $timeOff = []): array
+    private function buildWeeklyRoster(
+        Carbon $selectedDate,
+        array $employees,
+        array $shifts,
+        array $timeOff = [],
+        ?Carbon $periodStart = null,
+        ?Carbon $periodEnd = null
+    ): array
     {
-        $weekStart = $selectedDate->copy()->startOfWeek();
-        $weekEnd = $this->visiblePeriodEnd($selectedDate);
+        $weekStart = ($periodStart ?? $selectedDate)->copy()->startOfWeek();
+        $weekEnd = ($periodEnd ?? $this->visiblePeriodEnd($selectedDate))->copy()->endOfWeek();
         $weekDates = [];
         $shiftsByEmployeeAndDate = [];
         $weekShifts = [];
@@ -1371,8 +1408,9 @@ class OdooManagerPlanningService
             'week_start' => $weekStart,
             'week_end' => $weekEnd,
             'week_label' => $this->formatWeekLabel($weekStart, $weekEnd),
-            'previous_week_day' => $weekStart->copy()->subWeeks(2),
-            'next_week_day' => $weekStart->copy()->addWeeks(2),
+            'previous_week_day' => $weekStart->copy()->subDays($weekStart->diffInDays($weekEnd) + 1),
+            'next_week_day' => $weekStart->copy()->addDays($weekStart->diffInDays($weekEnd) + 1),
+            'period_days' => $weekStart->diffInDays($weekEnd) + 1,
             'days' => $days,
             'rows' => $rows,
             'summary' => [
@@ -1463,10 +1501,16 @@ class OdooManagerPlanningService
      * @param  array<int, array<string, mixed>>  $shifts
      * @return array<string, mixed>
      */
-    private function buildWeeklyAreaBoard(Carbon $selectedDate, array $roles, array $shifts): array
+    private function buildWeeklyAreaBoard(
+        Carbon $selectedDate,
+        array $roles,
+        array $shifts,
+        ?Carbon $periodStart = null,
+        ?Carbon $periodEnd = null
+    ): array
     {
-        $weekStart = $selectedDate->copy()->startOfWeek();
-        $weekEnd = $this->visiblePeriodEnd($selectedDate);
+        $weekStart = ($periodStart ?? $selectedDate)->copy()->startOfWeek();
+        $weekEnd = ($periodEnd ?? $this->visiblePeriodEnd($selectedDate))->copy()->endOfWeek();
         $days = [];
         $cursor = $weekStart->copy();
         $shiftsByRoleAndDate = [];
@@ -1535,8 +1579,9 @@ class OdooManagerPlanningService
             'week_start' => $weekStart,
             'week_end' => $weekEnd,
             'week_label' => $this->formatWeekLabel($weekStart, $weekEnd),
-            'previous_week_day' => $weekStart->copy()->subWeeks(2),
-            'next_week_day' => $weekStart->copy()->addWeeks(2),
+            'previous_week_day' => $weekStart->copy()->subDays($weekStart->diffInDays($weekEnd) + 1),
+            'next_week_day' => $weekStart->copy()->addDays($weekStart->diffInDays($weekEnd) + 1),
+            'period_days' => $weekStart->diffInDays($weekEnd) + 1,
             'days' => $days,
             'rows' => $rows,
         ];
@@ -1666,7 +1711,19 @@ class OdooManagerPlanningService
         ));
         $overtimeRisks = count(array_filter(
             $rows,
-            fn (array $row): bool => ! ($row['is_open'] ?? false) && (int) ($row['scheduled_minutes'] ?? 0) > 2400
+            function (array $row): bool {
+                if ($row['is_open'] ?? false) {
+                    return false;
+                }
+                $minutesByWeek = [];
+                foreach ($row['cells'] ?? [] as $dateValue => $cell) {
+                    $weekKey = Carbon::parse($dateValue)->startOfWeek()->toDateString();
+                    foreach ($cell['shifts'] ?? [] as $shift) {
+                        $minutesByWeek[$weekKey] = ($minutesByWeek[$weekKey] ?? 0) + $this->shiftDurationMinutes($shift);
+                    }
+                }
+                return count(array_filter($minutesByWeek, fn (int $minutes): bool => $minutes > 2400)) > 0;
+            }
         ));
         $coveredDays = count(array_filter($dayShiftCounts));
         $alerts = [];
@@ -1687,7 +1744,7 @@ class OdooManagerPlanningService
                 'type' => 'info',
                 'icon' => 'fa-bullhorn',
                 'title' => $unpublishedShiftCount.' unpublished shift'.($unpublishedShiftCount === 1 ? '' : 's'),
-                'message' => 'Publish this visible week after your edits are complete.',
+                'message' => 'Publish this visible range after your edits are complete.',
             ];
         }
 
@@ -1696,7 +1753,7 @@ class OdooManagerPlanningService
                 'type' => 'danger',
                 'icon' => 'fa-exclamation-triangle',
                 'title' => $overtimeRisks.' overtime risk'.($overtimeRisks === 1 ? '' : 's'),
-                'message' => 'One or more team members are scheduled above 40 hours this week.',
+                'message' => 'One or more team members average above 40 scheduled hours per visible week.',
             ];
         }
 
@@ -1718,13 +1775,14 @@ class OdooManagerPlanningService
             ];
         }
 
-        if ($coveredDays < 7 && count($weekShifts) > 0) {
-            $uncoveredDays = 7 - $coveredDays;
+        $visibleDayCount = count($dayShiftCounts);
+        if ($coveredDays < $visibleDayCount && count($weekShifts) > 0) {
+            $uncoveredDays = $visibleDayCount - $coveredDays;
             $alerts[] = [
                 'type' => 'info',
                 'icon' => 'fa-calendar-day',
                 'title' => $uncoveredDays.' uncovered day'.($uncoveredDays === 1 ? '' : 's'),
-                'message' => 'Some days in this week have no scheduled shifts.',
+                'message' => 'Some days in this range have no scheduled shifts.',
             ];
         }
 
@@ -1905,10 +1963,15 @@ class OdooManagerPlanningService
      *     summary:array<string, int>
      * }
      */
-    private function buildWeeklyTimeOffData(Carbon $selectedDate, array $employees): array
+    private function buildWeeklyTimeOffData(
+        Carbon $selectedDate,
+        array $employees,
+        ?Carbon $periodStart = null,
+        ?Carbon $periodEnd = null
+    ): array
     {
-        $weekStart = $selectedDate->copy()->startOfWeek();
-        $weekEnd = $this->visiblePeriodEnd($selectedDate);
+        $weekStart = ($periodStart ?? $selectedDate)->copy()->startOfWeek();
+        $weekEnd = ($periodEnd ?? $this->visiblePeriodEnd($selectedDate))->copy()->endOfWeek();
         $employeeIds = array_values(array_filter(array_map(
             fn (array $employee): ?int => isset($employee['id']) && is_numeric($employee['id']) ? (int) $employee['id'] : null,
             $employees

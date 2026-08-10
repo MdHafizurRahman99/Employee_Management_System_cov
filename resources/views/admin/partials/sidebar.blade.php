@@ -47,9 +47,9 @@
             </a>
         </li>
         <li class="nav-item">
-            <a class="nav-link" href="{{ route('manager.shifts.create') }}">
+            <a class="nav-link" href="{{ route('manager.shifts.create', ['setup' => 1]) }}">
                 <i class="fas fa-fw fa-calendar-plus"></i>
-                <span>Team Schedule</span>
+                <span>Roster</span>
             </a>
         </li>
         <li class="nav-item">

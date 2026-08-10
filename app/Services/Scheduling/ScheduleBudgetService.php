@@ -56,9 +56,32 @@ class ScheduleBudgetService
     }
 
     /** @param array<int,array<string,mixed>> $shifts @return array<string,mixed> */
-    public function projectFromStorage(array $shifts, Carbon $weekStart): array
+    public function projectFromStorage(array $shifts, Carbon $weekStart, ?Carbon $rangeEnd = null): array
     {
         $repository=$this->repository ?? app(OdooScheduleRepository::class);
-        try{return $this->project($shifts,$repository->costRates(collect($shifts)->pluck('employee_id')->filter()->unique()->values()->all(),$weekStart,$weekStart->copy()->endOfWeek()),$repository->breaks(collect($shifts)->pluck('id')->filter()->values()->all()),$repository->weekBudgets($weekStart));}catch(OdooException){return $this->project($shifts,[],[],[]);}
+        $rangeEnd = ($rangeEnd ?? $weekStart->copy()->endOfWeek())->copy()->endOfWeek();
+        try {
+            $budgets = collect();
+            for ($cursor = $weekStart->copy()->startOfWeek(); $cursor->lte($rangeEnd); $cursor->addWeek()) {
+                $budgets = $budgets->concat($repository->weekBudgets($cursor));
+            }
+            $rangeBudgets = $budgets->groupBy('company_id')->map(function ($companyBudgets): OdooScheduleRecord {
+                $first = $companyBudgets->first();
+                $currencies = $companyBudgets->pluck('currency')->filter()->unique();
+                return new OdooScheduleRecord([
+                    'company_id' => $first->company_id,
+                    'amount' => (float) $companyBudgets->sum('amount'),
+                    'currency' => $currencies->count() === 1 ? $currencies->first() : 'MIXED',
+                ]);
+            })->values();
+            return $this->project(
+                $shifts,
+                $repository->costRates(collect($shifts)->pluck('employee_id')->filter()->unique()->values()->all(), $weekStart, $rangeEnd),
+                $repository->breaks(collect($shifts)->pluck('id')->filter()->values()->all()),
+                $rangeBudgets
+            );
+        } catch(OdooException) {
+            return $this->project($shifts,[],[],[]);
+        }
     }
 }

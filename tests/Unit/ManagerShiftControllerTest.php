@@ -359,6 +359,69 @@ class ManagerShiftControllerTest extends TestCase
         $this->assertSame(route('manager.shifts.create', ['month' => '2026-06', 'day' => '2026-06-17']), $response->getTargetUrl());
     }
 
+    public function test_it_publishes_every_shift_in_the_selected_full_week_range(): void
+    {
+        $this->mock(OdooManagerPlanningService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('getShiftsForRange')->once()->withArgs(
+                fn (Carbon $start, Carbon $end): bool =>
+                    $start->toDateString() === '2026-06-01' && $end->toDateString() === '2026-06-28'
+            )->andReturn([['id' => 1], ['id' => 2], ['id' => 3]]);
+        });
+        $this->mock(SchedulePublishService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('publishShifts')->once()->withArgs(
+                fn (array $shifts): bool => count($shifts) === 3
+            )->andReturn(3);
+        });
+
+        $request = Request::create('/manager/shifts/publish-week', 'POST', [
+            'month' => '2026-06', 'day' => '2026-06-10',
+            'start_date' => '2026-06-03', 'end_date' => '2026-06-24',
+        ]);
+        $request->setLaravelSession($this->app['session.store']);
+
+        $response = (new ManagerShiftController())->publishWeek(
+            $request,
+            app(OdooManagerPlanningService::class),
+            app(SchedulePublishService::class)
+        );
+
+        $this->assertSame(route('manager.shifts.create', [
+            'month' => '2026-06', 'day' => '2026-06-10',
+            'start_date' => '2026-06-03', 'end_date' => '2026-06-24',
+        ]), $response->getTargetUrl());
+    }
+
+    public function test_it_copies_the_selected_visible_range_and_preserves_its_length(): void
+    {
+        $this->mock(OdooManagerPlanningService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('getShiftsForRange')->once()->withArgs(
+                fn (Carbon $start, Carbon $end): bool =>
+                    $start->toDateString() === '2026-06-01' && $end->toDateString() === '2026-06-28'
+            )->andReturn([[
+                'employee_id' => 35, 'role_id' => 9, 'company_id' => 2, 'work_location_id' => 7,
+                'shift_date_value' => '2026-06-28', 'start_time_value' => '09:00',
+                'end_time_value' => '17:00', 'title_value' => 'Last day', 'note' => null,
+            ]]);
+            $mock->shouldReceive('createShiftsReturningIds')->once()->withArgs(
+                fn (array $data): bool => $data['shift_date'] === '2026-07-26'
+            )->andReturn([401]);
+        });
+
+        $request = Request::create('/manager/shifts/copy-period', 'POST', [
+            'month' => '2026-06', 'day' => '2026-06-01',
+            'start_date' => '2026-06-01', 'end_date' => '2026-06-28',
+            'source_date' => '2026-06-01', 'target_date' => '2026-06-29', 'period' => 'range',
+        ]);
+        $request->setLaravelSession($this->app['session.store']);
+
+        $response = (new ManagerShiftController())->copyPeriod($request, app(OdooManagerPlanningService::class));
+
+        $this->assertSame(route('manager.shifts.create', [
+            'month' => '2026-06', 'day' => '2026-06-29',
+            'start_date' => '2026-06-29', 'end_date' => '2026-07-26',
+        ]), $response->getTargetUrl());
+    }
+
     public function test_it_copies_the_complete_visible_two_week_period(): void
     {
         $this->mock(OdooManagerPlanningService::class, function (MockInterface $mock): void {

@@ -35,14 +35,22 @@
 </style>
 
 <div class="container-fluid confirm-page">
+    @php
+        $confirmationRangeDays = $weekStart->diffInDays($weekEnd) + 1;
+        $confirmationPreviousStart = $weekStart->copy()->subDays($confirmationRangeDays);
+        $confirmationPreviousEnd = $weekEnd->copy()->subDays($confirmationRangeDays);
+        $confirmationNextStart = $weekStart->copy()->addDays($confirmationRangeDays);
+        $confirmationNextEnd = $weekEnd->copy()->addDays($confirmationRangeDays);
+        $confirmationScope = ['start_date'=>$weekStart->toDateString(),'end_date'=>$weekEnd->toDateString()];
+    @endphp
     <div class="confirm-hero">
         <div class="confirm-eyebrow">Roster response desk</div>
         <h1 class="confirm-title">Shift Confirmations</h1>
         <p class="mb-3">{{ $weekStart->format('M j') }}–{{ $weekEnd->format('M j, Y') }} · Review employee responses before the roster becomes tomorrow's problem.</p>
         <div class="confirm-actions">
-            <a href="{{ route('manager.shifts.create', ['month'=>$selectedMonth->format('Y-m'),'day'=>$selectedDay->toDateString()]) }}" class="btn btn-light btn-sm"><i class="fas fa-arrow-left mr-1"></i>Team Schedule</a>
-            <a href="{{ route('manager.shifts.confirmations', ['month'=>$weekStart->copy()->subWeek()->format('Y-m'),'day'=>$weekStart->copy()->subWeek()->toDateString()]) }}" class="btn btn-outline-light btn-sm">Previous week</a>
-            <a href="{{ route('manager.shifts.confirmations', ['month'=>$weekStart->copy()->addWeek()->format('Y-m'),'day'=>$weekStart->copy()->addWeek()->toDateString()]) }}" class="btn btn-outline-light btn-sm">Next week</a>
+            <a href="{{ route('manager.shifts.create', array_merge($confirmationScope,['month'=>$selectedMonth->format('Y-m'),'day'=>$selectedDay->toDateString()])) }}" class="btn btn-light btn-sm"><i class="fas fa-arrow-left mr-1"></i>Team Schedule</a>
+            <a href="{{ route('manager.shifts.confirmations', ['month'=>$confirmationPreviousStart->format('Y-m'),'day'=>$confirmationPreviousStart->toDateString(),'start_date'=>$confirmationPreviousStart->toDateString(),'end_date'=>$confirmationPreviousEnd->toDateString()]) }}" class="btn btn-outline-light btn-sm">Previous range</a>
+            <a href="{{ route('manager.shifts.confirmations', ['month'=>$confirmationNextStart->format('Y-m'),'day'=>$confirmationNextStart->toDateString(),'start_date'=>$confirmationNextStart->toDateString(),'end_date'=>$confirmationNextEnd->toDateString()]) }}" class="btn btn-outline-light btn-sm">Next range</a>
         </div>
     </div>
 
@@ -52,13 +60,13 @@
 
     <div class="confirm-metrics">
         @foreach(['all'=>'All requests','pending'=>'Awaiting reply','accepted'=>'Accepted','declined'=>'Declined','updated'=>'Changed after publish'] as $key=>$label)
-            <a class="confirm-metric text-decoration-none text-reset" href="{{ route('manager.shifts.confirmations', ['month'=>$selectedMonth->format('Y-m'),'day'=>$selectedDay->toDateString(),'status'=>$key]) }}"><span>{{ $label }}</span><strong>{{ $summary[$key] }}</strong></a>
+            <a class="confirm-metric text-decoration-none text-reset" href="{{ route('manager.shifts.confirmations', array_merge($confirmationScope,['month'=>$selectedMonth->format('Y-m'),'day'=>$selectedDay->toDateString(),'status'=>$key])) }}"><span>{{ $label }}</span><strong>{{ $summary[$key] }}</strong></a>
         @endforeach
     </div>
 
     <form class="confirm-filter" method="GET" action="{{ route('manager.shifts.confirmations') }}">
         <div class="form-row align-items-end">
-            <input type="hidden" name="month" value="{{ $selectedMonth->format('Y-m') }}"><input type="hidden" name="day" value="{{ $selectedDay->toDateString() }}">
+            <input type="hidden" name="month" value="{{ $selectedMonth->format('Y-m') }}"><input type="hidden" name="day" value="{{ $selectedDay->toDateString() }}"><input type="hidden" name="start_date" value="{{ $weekStart->toDateString() }}"><input type="hidden" name="end_date" value="{{ $weekEnd->toDateString() }}">
             <div class="col-md-5 mb-2 mb-md-0"><label class="small font-weight-bold">Find employee, role, company, or reason</label><input class="form-control" type="search" name="search" value="{{ $search }}" placeholder="Search confirmations"></div>
             <div class="col-md-4 mb-2 mb-md-0"><label class="small font-weight-bold">Response status</label><select class="form-control" name="status">@foreach(['all'=>'All','pending'=>'Pending','accepted'=>'Accepted','declined'=>'Declined','updated'=>'Changed after publish'] as $key=>$label)<option value="{{ $key }}" @selected($status===$key)>{{ $label }}</option>@endforeach</select></div>
             <div class="col-md-3"><button class="btn btn-dark btn-block" type="submit"><i class="fas fa-filter mr-1"></i>Apply filters</button></div>
@@ -71,10 +79,10 @@
             <article class="confirmation-card is-{{ $responseStatus }}">
                 <div><div class="confirmation-person">{{ $shift['employee'] ?? 'Open shift' }}</div><div class="confirmation-meta">{{ $shift['role'] ?? 'No role' }} · {{ $shift['company'] ?? 'No company' }}</div></div>
                 <div><strong>{{ $shift['date_label'] ?? $shift['shift_date_value'] }}</strong><div class="confirmation-meta">{{ $shift['time_label'] ?? (($shift['start_time_value'] ?? '').'–'.($shift['end_time_value'] ?? '')) }}</div>@if(($shift['publish_state']??'')==='updated')<span class="badge badge-warning mt-2">Changed after publishing</span>@endif</div>
-                <div class="confirmation-response"><span class="confirmation-status"><i class="fas fa-{{ $responseStatus==='accepted'?'check':($responseStatus==='declined'?'times':'clock') }}"></i>{{ ucfirst($responseStatus) }}</span>@if($shift['confirmation_responded_at_label']??null)<div class="confirmation-meta">Responded {{ $shift['confirmation_responded_at_label'] }}</div>@endif @if($shift['notified_at_label']??null)<div class="confirmation-meta"><i class="fas fa-paper-plane mr-1"></i>Sent {{ $shift['notified_at_label'] }}</div>@endif @if($shift['reminder_sent_at_label']??null)<div class="confirmation-meta"><i class="fas fa-bell mr-1"></i>Reminded {{ $shift['reminder_sent_at_label'] }}</div>@endif @if(($shift['notification_status']??null)==='failed')<div class="confirmation-note"><strong>Delivery failed:</strong> {{ $shift['notification_error'] }}</div>@endif @if($shift['confirmation_note']??null)<div class="confirmation-note"><strong>Reason:</strong> {{ $shift['confirmation_note'] }}</div>@endif @if($responseStatus==='pending')<form class="mt-2" method="POST" action="{{ route('manager.shifts.remind',$shift['id']) }}">@csrf<input type="hidden" name="month" value="{{ $selectedMonth->format('Y-m') }}"><input type="hidden" name="day" value="{{ $selectedDay->toDateString() }}"><button class="btn btn-outline-warning btn-sm" type="submit"><i class="fas fa-bell mr-1"></i>Send reminder</button></form>@endif</div>
+                <div class="confirmation-response"><span class="confirmation-status"><i class="fas fa-{{ $responseStatus==='accepted'?'check':($responseStatus==='declined'?'times':'clock') }}"></i>{{ ucfirst($responseStatus) }}</span>@if($shift['confirmation_responded_at_label']??null)<div class="confirmation-meta">Responded {{ $shift['confirmation_responded_at_label'] }}</div>@endif @if($shift['notified_at_label']??null)<div class="confirmation-meta"><i class="fas fa-paper-plane mr-1"></i>Sent {{ $shift['notified_at_label'] }}</div>@endif @if($shift['reminder_sent_at_label']??null)<div class="confirmation-meta"><i class="fas fa-bell mr-1"></i>Reminded {{ $shift['reminder_sent_at_label'] }}</div>@endif @if(($shift['notification_status']??null)==='failed')<div class="confirmation-note"><strong>Delivery failed:</strong> {{ $shift['notification_error'] }}</div>@endif @if($shift['confirmation_note']??null)<div class="confirmation-note"><strong>Reason:</strong> {{ $shift['confirmation_note'] }}</div>@endif @if($responseStatus==='pending')<form class="mt-2" method="POST" action="{{ route('manager.shifts.remind',$shift['id']) }}">@csrf<input type="hidden" name="month" value="{{ $selectedMonth->format('Y-m') }}"><input type="hidden" name="day" value="{{ $selectedDay->toDateString() }}"><input type="hidden" name="start_date" value="{{ $weekStart->toDateString() }}"><input type="hidden" name="end_date" value="{{ $weekEnd->toDateString() }}"><button class="btn btn-outline-warning btn-sm" type="submit"><i class="fas fa-bell mr-1"></i>Send reminder</button></form>@endif</div>
             </article>
         @empty
-            <div class="confirmation-empty"><i class="fas fa-clipboard-check fa-3x text-muted mb-3"></i><h5>No matching confirmations</h5><p class="text-muted mb-0">Try another status or week. Only published shifts requiring confirmation appear here.</p></div>
+            <div class="confirmation-empty"><i class="fas fa-clipboard-check fa-3x text-muted mb-3"></i><h5>No matching confirmations</h5><p class="text-muted mb-0">Try another status or range. Only published shifts requiring confirmation appear here.</p></div>
         @endforelse
     </div>
 </div>

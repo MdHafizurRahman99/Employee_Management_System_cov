@@ -18,6 +18,7 @@ use Illuminate\Http\Request;
 class ManagerShiftController extends Controller
 {
     private const VISIBLE_PERIOD_DAYS = 14;
+    private const MAX_VISIBLE_WEEKS = 12;
 
     /**
      * Display the manager Odoo shift creation page.
@@ -30,6 +31,9 @@ class ManagerShiftController extends Controller
         $selectedMonth = $this->resolveMonth($request->query('month'));
         $selectedDay = $this->resolveSelectedDay($request->query('day'), $selectedMonth);
         $selectedView = $this->resolveView($request->query('view'));
+        $rangeAnchor = $selectedDay
+            ?? (now()->isSameMonth($selectedMonth) ? now()->startOfDay() : $selectedMonth->copy()->startOfMonth());
+        [$scheduleRangeStart, $scheduleRangeEnd, $scheduleRangeWasLimited] = $this->resolveScheduleRange($request, $rangeAnchor);
         $pageData = [
             'employees' => [],
             'roles' => [],
@@ -41,8 +45,8 @@ class ManagerShiftController extends Controller
             'selectedCalendarDateLabel' => $selectedMonth->format('D, d M Y'),
             'selectedCalendarDateValue' => $selectedMonth->format('Y-m-d'),
             'selectedCalendarShifts' => [],
-            'weeklyRoster' => $this->emptyWeeklyRoster($selectedMonth->copy()->startOfMonth()),
-            'weeklyAreaBoard' => $this->emptyWeeklyAreaBoard($selectedMonth->copy()->startOfMonth()),
+            'weeklyRoster' => $this->emptyWeeklyRoster($rangeAnchor, $scheduleRangeStart, $scheduleRangeEnd),
+            'weeklyAreaBoard' => $this->emptyWeeklyAreaBoard($rangeAnchor, $scheduleRangeStart, $scheduleRangeEnd),
             'employeeDiary' => [
                 'entries' => [],
                 'by_employee_date' => [],
@@ -54,14 +58,19 @@ class ManagerShiftController extends Controller
         $odooPlanningError = null;
 
         try {
-            $pageData = $planningService->getShiftCreationPageDataForMonth($selectedMonth, $selectedDay);
+            $pageData = $planningService->getShiftCreationPageDataForMonth(
+                $selectedMonth,
+                $selectedDay,
+                $scheduleRangeStart,
+                $scheduleRangeEnd
+            );
             $odooPlanningError = $pageData['employeeDiaryError'] ?? null;
         } catch (OdooException $exception) {
             $odooPlanningError = $exception->getMessage();
         }
 
         $weeklyAreaBoard = app(SchedulingAreaService::class)->decorateBoard(
-            $pageData['weeklyAreaBoard'] ?? $this->emptyWeeklyAreaBoard($selectedMonth->copy()->startOfMonth())
+            $pageData['weeklyAreaBoard'] ?? $this->emptyWeeklyAreaBoard($rangeAnchor, $scheduleRangeStart, $scheduleRangeEnd)
         );
         [$weeklyRoster, $weeklyAreaBoard] = app(ScheduleDayService::class)->decorateViews(
             $pageData['weeklyRoster'],
@@ -69,7 +78,11 @@ class ManagerShiftController extends Controller
         );
         [$weeklyRoster, $weeklyAreaBoard, $complianceSummary] = app(ScheduleComplianceService::class)->decorateViews($weeklyRoster, $weeklyAreaBoard);
         $budgetShifts = collect($weeklyRoster['rows'] ?? [])->flatMap(fn (array $row) => collect($row['cells'] ?? [])->flatMap(fn (array $cell) => $cell['shifts'] ?? []))->unique('id')->values()->all();
-        $budgetForecast = app(ScheduleBudgetService::class)->projectFromStorage($budgetShifts, $weeklyRoster['week_start']);
+        $budgetForecast = app(ScheduleBudgetService::class)->projectFromStorage(
+            $budgetShifts,
+            $weeklyRoster['week_start'],
+            $weeklyRoster['week_end']
+        );
         return view('admin.manager-shifts.create', [
             'selectedMonth' => $selectedMonth,
             'previousMonth' => $selectedMonth->copy()->subMonthNoOverflow(),
@@ -95,11 +108,18 @@ class ManagerShiftController extends Controller
                 'count' => 0,
             ],
             'selectedView' => $selectedView,
+            'scheduleRangeStart' => $scheduleRangeStart,
+            'scheduleRangeEnd' => $scheduleRangeEnd,
+            'scheduleRangeDays' => $scheduleRangeStart->diffInDays($scheduleRangeEnd) + 1,
+            'scheduleRangeWasLimited' => $scheduleRangeWasLimited,
+            'showScheduleScopeModal' => $request->boolean('setup')
+                || ! $request->filled('start_date')
+                || ! $request->filled('end_date'),
             'odooPlanningError' => $odooPlanningError,
         ]);
     }
 
-    /** Display employee responses for confirmation-required shifts in the visible week. */
+    /** Display employee responses for confirmation-required shifts. */
     public function confirmations(Request $request, OdooManagerPlanningService $planningService): View
     {
         $selectedMonth = $this->resolveMonth($request->query('month'));
@@ -109,12 +129,18 @@ class ManagerShiftController extends Controller
             ? (string) $request->query('status')
             : 'all';
         $search = trim((string) $request->query('search', ''));
+        $hasRange = $request->filled('start_date') && $request->filled('end_date');
+        [$weekStart, $weekEnd] = $hasRange
+            ? array_slice($this->resolveScheduleRange($request, $selectedDay), 0, 2)
+            : [$selectedDay->copy()->startOfWeek(), $selectedDay->copy()->endOfWeek()];
         $shifts = [];
         $odooPlanningError = null;
 
         try {
             $shifts = array_values(array_filter(
-                $planningService->getWeeklyShiftsForDate($selectedDay),
+                $hasRange
+                    ? $planningService->getShiftsForRange($weekStart, $weekEnd)
+                    : $planningService->getWeeklyShiftsForDate($selectedDay),
                 fn (array $shift): bool => (bool) ($shift['requires_confirmation'] ?? false)
             ));
         } catch (OdooException $exception) {
@@ -141,9 +167,6 @@ class ManagerShiftController extends Controller
             return $matchesStatus && ($search === '' || str_contains($haystack, mb_strtolower($search)));
         }));
 
-        $weekStart = $selectedDay->copy()->startOfWeek();
-        $weekEnd = $selectedDay->copy()->endOfWeek();
-
         return view('admin.manager-shifts.confirmations', compact(
             'selectedMonth', 'selectedDay', 'weekStart', 'weekEnd', 'status', 'search',
             'filteredShifts', 'summary', 'odooPlanningError'
@@ -159,11 +182,19 @@ class ManagerShiftController extends Controller
         $validated = $request->validate([
             'month' => ['required', 'date_format:Y-m'],
             'day' => ['required', 'date_format:Y-m-d'],
+            'start_date' => ['nullable', 'date_format:Y-m-d'],
+            'end_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:start_date'],
         ]);
         $selectedDay = Carbon::createFromFormat('Y-m-d', $validated['day'])->startOfDay();
 
         try {
-            $candidate = collect($planningService->getWeeklyShiftsForDate($selectedDay))
+            $candidateShifts = ! empty($validated['start_date']) && ! empty($validated['end_date'])
+                ? $planningService->getShiftsForRange(
+                    Carbon::createFromFormat('Y-m-d', $validated['start_date'])->startOfWeek(),
+                    Carbon::createFromFormat('Y-m-d', $validated['end_date'])->endOfWeek()
+                )
+                : $planningService->getWeeklyShiftsForDate($selectedDay);
+            $candidate = collect($candidateShifts)
                 ->first(fn (array $item): bool => (int) ($item['id'] ?? 0) === $shift);
 
             if (! is_array($candidate)) {
@@ -272,7 +303,7 @@ class ManagerShiftController extends Controller
     }
 
     /**
-     * Mark the currently visible week as published on Odoo planning slots.
+     * Mark the currently visible date range as published on Odoo planning slots.
      */
     public function publishWeek(
         Request $request,
@@ -282,16 +313,26 @@ class ManagerShiftController extends Controller
         $validated = $request->validate([
             'month' => ['required', 'date_format:Y-m'],
             'day' => ['required', 'date_format:Y-m-d'],
+            'start_date' => ['nullable', 'date_format:Y-m-d'],
+            'end_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:start_date'],
             'requires_confirmation' => ['nullable', 'boolean'],
             'notification_mode' => ['nullable', 'string', 'max:40'],
         ]);
 
-        $selectedMonth = $this->resolveMonth((string) $validated['month']);
-        $selectedDay = $this->resolveSelectedDay((string) $validated['day'], $selectedMonth)
-            ?? $selectedMonth->copy()->startOfWeek();
-
         try {
-            $weekShifts = $planningService->getWeeklyShiftsForDate($selectedDay);
+            if (! empty($validated['start_date']) && ! empty($validated['end_date'])) {
+                $periodStart = Carbon::createFromFormat('Y-m-d', $validated['start_date'])->startOfWeek();
+                $periodEnd = Carbon::createFromFormat('Y-m-d', $validated['end_date'])->endOfWeek();
+                if ($periodStart->diffInDays($periodEnd) + 1 > self::MAX_VISIBLE_WEEKS * 7) {
+                    return back()->withErrors(['manager_shift' => 'The schedule range cannot exceed 12 full weeks.']);
+                }
+                $weekShifts = $planningService->getShiftsForRange($periodStart, $periodEnd);
+            } else {
+                $selectedMonth = $this->resolveMonth((string) $validated['month']);
+                $selectedDay = $this->resolveSelectedDay((string) $validated['day'], $selectedMonth)
+                    ?? $selectedMonth->copy()->startOfWeek();
+                $weekShifts = $planningService->getWeeklyShiftsForDate($selectedDay);
+            }
             $publishedCount = $publishService->publishShifts(
                 $weekShifts,
                 $request->user(),
@@ -307,8 +348,8 @@ class ManagerShiftController extends Controller
         return redirect()
             ->route('manager.shifts.create', $this->preservedFilters($request))
             ->with('success', $publishedCount === 0
-                ? 'No Odoo shifts were available to publish for the visible week.'
-                : $publishedCount.' Odoo shift'.($publishedCount === 1 ? ' was' : 's were').' marked as published for this week.');
+                ? 'No Odoo shifts were available to publish for the visible date range.'
+                : $publishedCount.' Odoo shift'.($publishedCount === 1 ? ' was' : 's were').' marked as published for this date range.');
     }
 
     /**
@@ -455,7 +496,7 @@ class ManagerShiftController extends Controller
             ->with('success', count($validated['shifts']).' selected shift(s) were updated.');
     }
 
-    /** Copy one day or the complete visible two-week period to a new date range. */
+    /** Copy one day or the complete visible schedule period to a new date range. */
     public function copyPeriod(Request $request, OdooManagerPlanningService $planningService, ?ScheduleUndoService $undo = null): RedirectResponse
     {
         $validated = $request->validate([
@@ -463,14 +504,33 @@ class ManagerShiftController extends Controller
             'day' => ['required', 'date_format:Y-m-d'],
             'source_date' => ['required', 'date_format:Y-m-d'],
             'target_date' => ['required', 'date_format:Y-m-d', 'different:source_date'],
-            'period' => ['required', 'in:day,week,two_weeks'],
+            'start_date' => ['nullable', 'date_format:Y-m-d'],
+            'end_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:start_date'],
+            'period' => ['required', 'in:day,week,two_weeks,range'],
         ]);
 
         $sourceDate = Carbon::createFromFormat('Y-m-d', $validated['source_date'])->startOfDay();
         $targetDate = Carbon::createFromFormat('Y-m-d', $validated['target_date'])->startOfDay();
-        $shifts = $validated['period'] === 'day'
-            ? $planningService->getWeeklyShiftsForDate($sourceDate)
-            : $planningService->getVisiblePeriodShiftsForDate($sourceDate);
+        $visibleStart = ! empty($validated['start_date'])
+            ? Carbon::createFromFormat('Y-m-d', $validated['start_date'])->startOfWeek()
+            : $sourceDate->copy()->startOfWeek();
+        $visibleEnd = ! empty($validated['end_date'])
+            ? Carbon::createFromFormat('Y-m-d', $validated['end_date'])->endOfWeek()
+            : $visibleStart->copy()->addDays(self::VISIBLE_PERIOD_DAYS - 1);
+        $rangeDays = $visibleStart->diffInDays($visibleEnd) + 1;
+        if ($rangeDays > self::MAX_VISIBLE_WEEKS * 7) {
+            return back()->withErrors(['manager_shift' => 'The schedule range cannot exceed 12 full weeks.']);
+        }
+        if ($validated['period'] === 'day') {
+            $shifts = $planningService->getWeeklyShiftsForDate($sourceDate);
+        } elseif ($validated['period'] !== 'range' && empty($validated['start_date'])) {
+            $shifts = $planningService->getVisiblePeriodShiftsForDate($sourceDate);
+        } else {
+            $shifts = $planningService->getShiftsForRange(
+                $sourceDate->copy()->startOfWeek(),
+                $sourceDate->copy()->startOfWeek()->addDays($rangeDays - 1)
+            );
+        }
 
         if ($validated['period'] === 'day') {
             $shifts = array_values(array_filter($shifts, fn (array $shift): bool =>
@@ -515,9 +575,17 @@ class ManagerShiftController extends Controller
                 ->withErrors(['manager_shift' => 'Copy failed. Shifts created by this attempt were rolled back: '.$exception->getMessage()]);
         }
 
-        $redirect=redirect()->route('manager.shifts.create', array_merge($this->preservedFilters($request), [
-            'month' => $targetDate->format('Y-m'), 'day' => $targetDate->toDateString(),
-        ]))->with('success', count($createdIds).' shift(s) were copied successfully.');
+        $redirectRangeStart = $targetDate->copy()->startOfWeek();
+        $redirectFilters = [
+            'month' => $targetDate->format('Y-m'),
+            'day' => $targetDate->toDateString(),
+        ];
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $redirectFilters['start_date'] = $redirectRangeStart->toDateString();
+            $redirectFilters['end_date'] = $redirectRangeStart->copy()->addDays($rangeDays - 1)->toDateString();
+        }
+        $redirect=redirect()->route('manager.shifts.create', array_merge($this->preservedFilters($request), $redirectFilters))
+            ->with('success', count($createdIds).' shift(s) were copied successfully.');
         if($undo && $createdIds){try{$redirect->with('schedule_undo',$undo->recordCreatedSlots($createdIds,'Copy schedule period',$planningService,$request->user(),(int)($shifts[0]['company_id']??0)));}catch(OdooException|\RuntimeException){}}
         return $redirect;
     }
@@ -555,6 +623,31 @@ class ManagerShiftController extends Controller
         return in_array($view, ['team', 'area'], true) ? $view : 'team';
     }
 
+    /** @return array{0:Carbon,1:Carbon,2:bool} */
+    private function resolveScheduleRange(Request $request, Carbon $anchor): array
+    {
+        try {
+            $start = $request->filled('start_date')
+                ? Carbon::createFromFormat('Y-m-d', (string) $request->query('start_date'))->startOfWeek()
+                : $anchor->copy()->startOfWeek();
+            $end = $request->filled('end_date')
+                ? Carbon::createFromFormat('Y-m-d', (string) $request->query('end_date'))->endOfWeek()
+                : $start->copy()->addDays(self::VISIBLE_PERIOD_DAYS - 1)->endOfWeek();
+        } catch (\Throwable) {
+            $start = $anchor->copy()->startOfWeek();
+            $end = $start->copy()->addDays(self::VISIBLE_PERIOD_DAYS - 1)->endOfWeek();
+        }
+
+        if ($end->lt($start)) {
+            $end = $start->copy()->endOfWeek();
+        }
+
+        $maximumEnd = $start->copy()->addWeeks(self::MAX_VISIBLE_WEEKS)->subDay()->endOfDay();
+        $wasLimited = $end->gt($maximumEnd);
+
+        return [$start, $wasLimited ? $maximumEnd : $end, $wasLimited];
+    }
+
     /**
      * @return array<string, string>
      */
@@ -572,6 +665,14 @@ class ManagerShiftController extends Controller
             $filters['day'] = $day;
         }
 
+        foreach (['start_date', 'end_date'] as $rangeField) {
+            $value = (string) $request->input($rangeField, $request->query($rangeField, ''));
+
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) === 1) {
+                $filters[$rangeField] = $value;
+            }
+        }
+
         $view = (string) $request->input('view', $request->query('view', ''));
 
         if (in_array($view, ['team', 'area'], true)) {
@@ -584,10 +685,14 @@ class ManagerShiftController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function emptyWeeklyRoster(Carbon $selectedDate): array
+    private function emptyWeeklyRoster(
+        Carbon $selectedDate,
+        ?Carbon $periodStart = null,
+        ?Carbon $periodEnd = null
+    ): array
     {
-        $weekStart = $selectedDate->copy()->startOfWeek();
-        $weekEnd = $this->visiblePeriodEnd($selectedDate);
+        $weekStart = ($periodStart ?? $selectedDate)->copy()->startOfWeek();
+        $weekEnd = ($periodEnd ?? $this->visiblePeriodEnd($selectedDate))->copy()->endOfWeek();
         $days = [];
         $cursor = $weekStart->copy();
 
@@ -609,8 +714,9 @@ class ManagerShiftController extends Controller
             'week_start' => $weekStart,
             'week_end' => $weekEnd,
             'week_label' => $weekStart->format('M j').' - '.$weekEnd->format($weekStart->isSameMonth($weekEnd) ? 'j, Y' : 'M j, Y'),
-            'previous_week_day' => $weekStart->copy()->subWeeks(2),
-            'next_week_day' => $weekStart->copy()->addWeeks(2),
+            'previous_week_day' => $weekStart->copy()->subDays($weekStart->diffInDays($weekEnd) + 1),
+            'next_week_day' => $weekStart->copy()->addDays($weekStart->diffInDays($weekEnd) + 1),
+            'period_days' => $weekStart->diffInDays($weekEnd) + 1,
             'days' => $days,
             'rows' => [],
             'summary' => [
@@ -637,7 +743,7 @@ class ManagerShiftController extends Controller
                     'type' => 'info',
                     'icon' => 'fa-info-circle',
                     'title' => 'No roster data',
-                    'message' => 'Odoo schedule data is not available for this two-week period yet.',
+                    'message' => 'Odoo schedule data is not available for this date range yet.',
                 ],
             ],
             'role_breakdown' => [],
@@ -650,10 +756,14 @@ class ManagerShiftController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function emptyWeeklyAreaBoard(Carbon $selectedDate): array
+    private function emptyWeeklyAreaBoard(
+        Carbon $selectedDate,
+        ?Carbon $periodStart = null,
+        ?Carbon $periodEnd = null
+    ): array
     {
-        $weekStart = $selectedDate->copy()->startOfWeek();
-        $weekEnd = $this->visiblePeriodEnd($selectedDate);
+        $weekStart = ($periodStart ?? $selectedDate)->copy()->startOfWeek();
+        $weekEnd = ($periodEnd ?? $this->visiblePeriodEnd($selectedDate))->copy()->endOfWeek();
         $days = [];
         $cursor = $weekStart->copy();
 
@@ -675,8 +785,9 @@ class ManagerShiftController extends Controller
             'week_start' => $weekStart,
             'week_end' => $weekEnd,
             'week_label' => $weekStart->format('M j').' - '.$weekEnd->format($weekStart->isSameMonth($weekEnd) ? 'j, Y' : 'M j, Y'),
-            'previous_week_day' => $weekStart->copy()->subWeeks(2),
-            'next_week_day' => $weekStart->copy()->addWeeks(2),
+            'previous_week_day' => $weekStart->copy()->subDays($weekStart->diffInDays($weekEnd) + 1),
+            'next_week_day' => $weekStart->copy()->addDays($weekStart->diffInDays($weekEnd) + 1),
+            'period_days' => $weekStart->diffInDays($weekEnd) + 1,
             'days' => $days,
             'rows' => [],
         ];

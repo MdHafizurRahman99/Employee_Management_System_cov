@@ -391,13 +391,13 @@
         .roster-grid {
             display: grid;
             grid-template-columns: 248px repeat(var(--schedule-day-count, 14), minmax(158px, 1fr));
-            min-width: 2460px;
+            min-width: var(--schedule-grid-min-width, 2460px);
         }
 
         .area-grid {
             display: grid;
             grid-template-columns: 248px repeat(var(--schedule-day-count, 14), minmax(158px, 1fr));
-            min-width: 2460px;
+            min-width: var(--schedule-grid-min-width, 2460px);
         }
 
         .roster-corner,
@@ -490,6 +490,96 @@
             color: var(--schedule-green-dark);
             font-size: 0.72rem;
             font-weight: 900;
+        }
+
+        .schedule-period-button {
+            cursor: pointer;
+        }
+
+        .schedule-scope-modal .modal-dialog { max-width: 900px; }
+        .schedule-scope-modal .modal-content {
+            border: 1px solid rgba(14, 55, 40, 0.12);
+            border-radius: 18px;
+            overflow: hidden;
+            background: #f4f7f5;
+            box-shadow: 0 34px 90px rgba(9, 30, 23, 0.3);
+        }
+
+        .schedule-scope-hero {
+            position: relative;
+            overflow: hidden;
+            padding: 1.5rem 1.75rem;
+            background: linear-gradient(118deg, #0b261c 0%, #12553b 100%);
+            color: #fff;
+        }
+
+        .schedule-scope-hero::after {
+            position: absolute;
+            width: 230px;
+            height: 230px;
+            right: -62px;
+            top: -150px;
+            border: 34px solid rgba(255,255,255,.07);
+            border-radius: 50%;
+            content: '';
+        }
+
+        .schedule-scope-hero h4 { font-size: 1.45rem; font-weight: 900; letter-spacing: -.02em; }
+        .schedule-scope-hero .close { position: relative; z-index: 2; opacity: .72; text-shadow: none; }
+        .schedule-scope-hero .close:hover { opacity: 1; }
+        .schedule-scope-modal .modal-body { padding: 1.25rem 1.5rem 1.4rem; }
+        .scope-section { padding: 1rem; border: 1px solid #dfe7e3; border-radius: 12px; background: #fff; }
+        .scope-section + .scope-section { margin-top: .9rem; }
+        .scope-section-head { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:.8rem; }
+        .scope-section-title { margin:0; color:#20302b; font-size:.82rem; font-weight:900; letter-spacing:.04em; text-transform:uppercase; }
+        .scope-select-all { border:1px solid #d8e3de; border-radius:999px; padding:.27rem .65rem !important; color:#176344; font-size:.74rem; font-weight:900; text-decoration:none !important; }
+        .scope-select-all:hover { border-color:#9fc9b4; background:#eff8f3; color:#0e5337; }
+        .scope-company-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .65rem; }
+        .scope-company-option {
+            position:relative;
+            display:flex;
+            align-items:center;
+            gap:.72rem;
+            min-height:64px;
+            margin:0;
+            padding:.7rem .8rem;
+            border:1px solid var(--company-shift-border, #dfe7e3);
+            border-left:4px solid var(--company-shift-accent, #64748b);
+            border-radius:9px;
+            background:var(--company-shift-bg, #f7f9f8);
+            color:var(--company-shift-text, #253247);
+            cursor:pointer;
+            transition:transform .16s ease, box-shadow .16s ease, opacity .16s ease, filter .16s ease;
+        }
+        .scope-company-option:hover { transform:translateY(-1px); box-shadow:0 8px 18px rgba(22,32,29,.09); }
+        .scope-company-option:not(:has(input:checked)) { opacity:.52; filter:saturate(.28); }
+        .scope-company-option input { position:absolute; opacity:0; pointer-events:none; }
+        .scope-company-check { display:inline-flex; align-items:center; justify-content:center; width:25px; height:25px; flex:0 0 auto; border:1px solid var(--company-shift-border, #b9c5c0); border-radius:7px; background:rgba(255,255,255,.76); color:#fff; }
+        .scope-company-check i { opacity:0; transform:scale(.55); transition:opacity .15s ease, transform .15s ease; }
+        .scope-company-option:has(input:checked) .scope-company-check { border-color:var(--company-shift-accent, #176344); background:var(--company-shift-accent, #176344); }
+        .scope-company-option:has(input:checked) .scope-company-check i { opacity:1; transform:scale(1); }
+        .scope-company-copy { min-width:0; }
+        .scope-company-copy strong { display:block; overflow:hidden; font-size:.86rem; font-weight:900; line-height:1.25; text-overflow:ellipsis; }
+        .scope-company-copy small { display:block; margin-top:.14rem; color:inherit; font-size:.65rem; font-weight:800; letter-spacing:.08em; opacity:.62; text-transform:uppercase; }
+        .scope-date-grid { margin:0 -.35rem; }
+        .scope-date-grid > div { padding:0 .35rem; }
+        .scope-date-field { position:relative; }
+        .scope-date-field label { color:#4e5d58; font-size:.75rem; font-weight:900; letter-spacing:.04em; text-transform:uppercase; }
+        .scope-date-field .form-control { height:48px; border-color:#d8e1dd; border-radius:8px; background:#fbfcfc; color:#1b2d26; font-weight:800; box-shadow:none; }
+        .scope-date-field .form-control:focus { border-color:#43a477; box-shadow:0 0 0 3px rgba(32,178,107,.12); }
+        .scope-range-preview { display:flex; align-items:center; gap:.75rem; margin-top:.8rem; padding:.7rem .8rem; border:1px solid #cfe6da; border-radius:9px; background:#edf8f2; color:#15563a; }
+        .scope-range-preview-icon { display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; flex:0 0 auto; border-radius:8px; background:#176344; color:#fff; }
+        .scope-range-preview-copy { min-width:0; }
+        .scope-range-preview-copy small { display:block; color:#5f756b; font-size:.64rem; font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
+        .scope-range-preview-copy strong { display:block; margin-top:.05rem; font-size:.86rem; font-weight:900; }
+        .scope-range-weeks { margin-left:auto; padding:.3rem .55rem; border-radius:999px; background:#fff; color:#176344; font-size:.72rem; font-weight:900; white-space:nowrap; }
+        .schedule-scope-modal .modal-footer { padding:.85rem 1.5rem; border-top:1px solid #dfe7e3; background:#fff; }
+        .scope-open-action { min-width:155px; min-height:42px; border-radius:8px !important; }
+
+        @media (max-width: 767.98px) {
+            .scope-company-grid { grid-template-columns:1fr; }
+            .schedule-scope-modal .modal-body { padding:1rem; }
+            .schedule-scope-hero { padding:1.25rem; }
         }
 
         .roster-day-counts {
@@ -1113,8 +1203,32 @@
         $employeeDiary = $employeeDiary ?? ['entries' => [], 'by_employee_date' => [], 'by_date' => [], 'count' => 0];
         $employeeDiaryByCell = $employeeDiary['by_employee_date'] ?? [];
         $employeeDiaryByDate = $employeeDiary['by_date'] ?? [];
-        $viewQuery = ['view' => $selectedView];
+        $viewQuery = [
+            'view' => $selectedView,
+            'start_date' => $scheduleRangeStart->toDateString(),
+            'end_date' => $scheduleRangeEnd->toDateString(),
+        ];
+        $scheduleRangeWeeks = intdiv($scheduleRangeDays, 7);
+        $previousRangeStart = $scheduleRangeStart->copy()->subDays($scheduleRangeDays);
+        $previousRangeEnd = $scheduleRangeEnd->copy()->subDays($scheduleRangeDays);
+        $nextRangeStart = $scheduleRangeStart->copy()->addDays($scheduleRangeDays);
+        $nextRangeEnd = $scheduleRangeEnd->copy()->addDays($scheduleRangeDays);
+        $todayRangeStart = now()->startOfWeek();
+        $todayRangeEnd = $todayRangeStart->copy()->addDays($scheduleRangeDays - 1);
         $companyShiftStyles = [];
+        $companyCoverageLabels = collect($companies)->mapWithKeys(function ($company) {
+            $companyId = (string) ($company['id'] ?? '');
+            $companyName = trim((string) ($company['name'] ?? 'Company'));
+            $companyCode = collect(preg_split('/\s+/', $companyName))
+                ->filter()
+                ->map(fn ($word) => strtoupper(substr($word, 0, 1)))
+                ->implode('');
+
+            return $companyId === '' ? [] : [$companyId => [
+                'code' => $companyCode !== '' ? $companyCode : $companyName,
+                'name' => $companyName,
+            ]];
+        })->all();
         $defaultCompanyShiftStyle = '--company-shift-accent:#64748b;--company-shift-border:#cbd5e1;--company-shift-bg:#f1f5f9;--company-shift-text:#253247;border-color:#cbd5e1;border-left-color:#64748b;background:#f1f5f9;color:#253247;';
 
         foreach (collect($companies)->sortBy(fn ($company) => (int) ($company['id'] ?? 0))->values() as $companyIndex => $company) {
@@ -1145,7 +1259,7 @@
             </div>
 
             <div class="schedule-commandbar">
-                <div class="command-location-wrap dropdown">
+                <div class="command-location-wrap dropdown d-none" aria-hidden="true">
                     <button id="deputyLocationButton" class="btn command-location text-left" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                         <i class="fas fa-building mr-2"></i><span id="deputyLocationLabel">All companies</span><i class="fas fa-chevron-down float-right mt-1"></i>
                     </button>
@@ -1159,18 +1273,18 @@
                         <div class="location-picker-foot"><button type="button" class="btn btn-light btn-sm" id="clearLocations">Reset</button><button type="button" class="btn btn-primary btn-sm" id="closeLocationPicker">Done</button></div>
                     </div>
                 </div>
-                <a href="{{ route('manager.shifts.create', array_merge($viewQuery, ['month' => $previousWeekDay->format('Y-m'), 'day' => $previousWeekDay->format('Y-m-d')])) }}"
-                    class="btn command-icon" title="Previous 2 weeks">
+                <a href="{{ route('manager.shifts.create', array_merge($viewQuery, ['month' => $previousRangeStart->format('Y-m'), 'day' => $previousRangeStart->format('Y-m-d'), 'start_date' => $previousRangeStart->toDateString(), 'end_date' => $previousRangeEnd->toDateString()])) }}"
+                    class="btn command-icon" title="Previous {{ $scheduleRangeWeeks }} week{{ $scheduleRangeWeeks === 1 ? '' : 's' }}">
                     <i class="fas fa-chevron-left"></i>
                 </a>
-                <span class="schedule-period">{{ $weekLabel }}</span>
-                <a href="{{ route('manager.shifts.create', array_merge($viewQuery, ['month' => $nextWeekDay->format('Y-m'), 'day' => $nextWeekDay->format('Y-m-d')])) }}"
-                    class="btn command-icon" title="Next 2 weeks">
+                <button type="button" class="schedule-period schedule-period-button" data-toggle="modal" data-target="#schedule_scope_modal" title="Change companies and date range">{{ $weekLabel }}</button>
+                <a href="{{ route('manager.shifts.create', array_merge($viewQuery, ['month' => $nextRangeStart->format('Y-m'), 'day' => $nextRangeStart->format('Y-m-d'), 'start_date' => $nextRangeStart->toDateString(), 'end_date' => $nextRangeEnd->toDateString()])) }}"
+                    class="btn command-icon" title="Next {{ $scheduleRangeWeeks }} week{{ $scheduleRangeWeeks === 1 ? '' : 's' }}">
                     <i class="fas fa-chevron-right"></i>
                 </a>
                 <select id="deputyViewSwitch" class="form-control command-view" aria-label="Schedule view">
-                    <option value="{{ route('manager.shifts.create', ['month' => $selectedMonth->format('Y-m'), 'day' => $selectedCalendarDateValue, 'view' => 'area']) }}" {{ $selectedView === 'area' ? 'selected' : '' }}>2 weeks by Area</option>
-                    <option value="{{ route('manager.shifts.create', ['month' => $selectedMonth->format('Y-m'), 'day' => $selectedCalendarDateValue, 'view' => 'team']) }}" {{ $selectedView === 'team' ? 'selected' : '' }}>2 weeks by Team member</option>
+                    <option value="{{ route('manager.shifts.create', array_merge($viewQuery, ['month' => $selectedMonth->format('Y-m'), 'day' => $selectedCalendarDateValue, 'view' => 'area'])) }}" {{ $selectedView === 'area' ? 'selected' : '' }}>Range by Area</option>
+                    <option value="{{ route('manager.shifts.create', array_merge($viewQuery, ['month' => $selectedMonth->format('Y-m'), 'day' => $selectedCalendarDateValue, 'view' => 'team'])) }}" {{ $selectedView === 'team' ? 'selected' : '' }}>Range by Team member</option>
                 </select>
                 <select id="mobileScheduleDay" class="form-control mobile-day-switch" aria-label="Visible schedule day">
                     @foreach($rosterDays as $day)
@@ -1179,7 +1293,7 @@
                 </select>
                 <span class="command-spacer"></span>
                 <div class="btn-group command-utility-group" role="group" aria-label="Date controls">
-                    <a href="{{ route('manager.shifts.create', array_merge($viewQuery, ['month' => now()->format('Y-m'), 'day' => now()->format('Y-m-d')])) }}"
+                    <a href="{{ route('manager.shifts.create', array_merge($viewQuery, ['month' => now()->format('Y-m'), 'day' => now()->format('Y-m-d'), 'start_date' => $todayRangeStart->toDateString(), 'end_date' => $todayRangeEnd->toDateString()])) }}"
                         class="btn command-icon" title="Go to today" aria-label="Go to today">
                         <i class="fas fa-calendar-day"></i>
                     </a>
@@ -1189,7 +1303,7 @@
                     </a>
                 </div>
                 <button type="button" class="btn command-copy" data-toggle="modal" data-target="#copy_schedule_period" title="Copy shifts"><i class="fas fa-copy mr-1"></i>Copy</button>
-                <a href="{{ route('manager.shifts.confirmations', ['month' => $selectedMonth->format('Y-m'), 'day' => $selectedCalendarDateValue]) }}" class="btn command-icon position-relative" title="Confirmations"><i class="fas fa-clipboard-check"></i>@if ($confirmationCount > 0)<span class="badge badge-danger position-absolute" style="right:-3px;top:-3px">{{ $confirmationCount }}</span>@endif</a>
+                <a href="{{ route('manager.shifts.confirmations', ['month' => $selectedMonth->format('Y-m'), 'day' => $selectedCalendarDateValue, 'start_date' => $scheduleRangeStart->toDateString(), 'end_date' => $scheduleRangeEnd->toDateString()]) }}" class="btn command-icon position-relative" title="Confirmations"><i class="fas fa-clipboard-check"></i>@if ($confirmationCount > 0)<span class="badge badge-danger position-absolute" style="right:-3px;top:-3px">{{ $confirmationCount }}</span>@endif</a>
                 <div class="dropdown">
                     <button class="btn command-icon" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Schedule options"><i class="fas fa-cog"></i></button>
                     <div class="dropdown-menu dropdown-menu-right schedule-options-menu">
@@ -1197,7 +1311,7 @@
                         <button class="dropdown-item" type="button" data-toggle="collapse" data-target="#scheduleWorkspaceTools"><i class="fas fa-chart-bar mr-2"></i>Checks and insights</button>
                         <button class="dropdown-item" type="button" data-toggle="modal" data-target="#bulk_edit_schedule"><i class="fas fa-edit mr-2"></i>Bulk update selected</button>
                         <a class="dropdown-item" href="{{ route('manager.auto-schedule.index', ['week'=>$selectedCalendarDateValue]) }}"><i class="fas fa-magic mr-2"></i>Auto schedule coverage</a>
-                        <a class="dropdown-item" href="{{ route('manager.shifts.confirmations', ['month'=>$selectedMonth->format('Y-m'),'day'=>$selectedCalendarDateValue]) }}"><i class="fas fa-clipboard-check mr-2"></i>Shift confirmations</a>
+                        <a class="dropdown-item" href="{{ route('manager.shifts.confirmations', ['month'=>$selectedMonth->format('Y-m'),'day'=>$selectedCalendarDateValue,'start_date'=>$scheduleRangeStart->toDateString(),'end_date'=>$scheduleRangeEnd->toDateString()]) }}"><i class="fas fa-clipboard-check mr-2"></i>Shift confirmations</a>
                         <a class="dropdown-item" href="{{ route('manager.schedule-templates.index', ['target_week'=>$selectedCalendarDateValue]) }}"><i class="fas fa-layer-group mr-2"></i>Schedule templates</a>
                         <a class="dropdown-item" href="{{ route('manager.schedule-areas.index') }}"><i class="fas fa-map-signs mr-2"></i>Areas & coverage</a>
                         <a class="dropdown-item" href="{{ route('manager.schedule-days.index', ['week'=>$selectedCalendarDateValue]) }}"><i class="fas fa-sticky-note mr-2"></i>Notes & blocked time</a>
@@ -1218,7 +1332,7 @@
                         class="btn schedule-publish-action {{ $unpublishedCount === 0 ? 'is-clean' : '' }}"
                         data-toggle="modal" data-target="#publish_week_schedule"
                         {{ count($rosterRows) === 0 ? 'disabled' : '' }}>
-                        <i class="fas fa-bullhorn mr-1"></i>{{ $unpublishedCount > 0 ? 'Publish shifts' : 'All shifts published' }}
+                        <i class="fas fa-bullhorn mr-1"></i>{{ $unpublishedCount > 0 ? 'Publish roster' : 'All shifts published' }}
                     </button>
                     <button type="button" class="btn schedule-publish-action dropdown-toggle dropdown-toggle-split {{ $unpublishedCount === 0 ? 'is-clean' : '' }}" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" {{ count($rosterRows) === 0 ? 'disabled' : '' }}><span class="sr-only">Publish options</span></button>
                     <div class="dropdown-menu dropdown-menu-right publish-preset-menu">
@@ -1248,6 +1362,12 @@
             </div>
         @endif
 
+        @if ($scheduleRangeWasLimited)
+            <div class="alert alert-warning">
+                The requested period was limited to 12 full weeks to keep the schedule usable and avoid oversized Odoo queries.
+            </div>
+        @endif
+
         @if (session('schedule_undo'))
             @php
                 $scheduleUndo = session('schedule_undo');
@@ -1269,7 +1389,7 @@
 
         <div class="schedule-stats mb-4">
             <div class="schedule-stat">
-                <span>Week Shifts</span>
+                <span>Range Shifts</span>
                 <strong>{{ $rosterSummary['shift_count'] ?? 0 }}</strong>
                 <small>{{ count($recentShifts) }} loaded in this calendar range</small>
             </div>
@@ -1306,12 +1426,12 @@
             <div class="schedule-stat">
                 <span>Unavailable</span>
                 <strong>{{ $unavailablePeopleCount }}</strong>
-                <small>People with weekly unavailability</small>
+                <small>People with unavailability in this range</small>
             </div>
             <div class="schedule-stat">
                 <span>Employee Diary</span>
                 <strong>{{ $employeeDiary['count'] ?? 0 }}</strong>
-                <small>Availability signals and notes for this week</small>
+                <small>Availability signals and notes for this range</small>
             </div>
         </div>
 
@@ -1407,10 +1527,10 @@
         <div class="roster-shell mb-4">
             <div class="roster-board-head">
                 <div>
-                    <h6 class="m-0 font-weight-bold">{{ $selectedView === 'area' ? '2 Weeks by Area' : '2 Weeks by Team Member' }}</h6>
+                    <h6 class="m-0 font-weight-bold">{{ $scheduleRangeWeeks }} Week{{ $scheduleRangeWeeks === 1 ? '' : 's' }} by {{ $selectedView === 'area' ? 'Area' : 'Team Member' }}</h6>
                     <p class="mb-0 small text-muted">
                         {{ $selectedView === 'area'
-                            ? 'Review the week grouped by Odoo planning role, then drag shifts across areas and days.'
+                            ? 'Review the selected range grouped by Odoo planning role, then drag shifts across areas and days.'
                             : 'Filter the roster, copy shifts, or use the plus button in a cell to prefill a shift.' }}
                     </p>
                     <div class="schedule-shortcuts mt-2">
@@ -1499,11 +1619,11 @@
 
             @if ($selectedView === 'team')
                 <div class="roster-scroll">
-                    <div class="roster-grid" id="teamRosterGrid" style="--schedule-day-count: {{ count($rosterDays) }}">
-                    <div class="roster-corner">
-                        <span>Team Member</span>
-                        <span>{{ count($rosterRows) }}</span>
-                    </div>
+                    <div class="roster-grid" id="teamRosterGrid" style="--schedule-day-count: {{ count($rosterDays) }};--schedule-grid-min-width:{{ 248 + (count($rosterDays) * 158) }}px">
+                        <div class="roster-corner">
+                            <span>Team Member</span>
+                            <span id="visibleTeamMemberCount">{{ count($rosterRows) }}</span>
+                        </div>
 
                     @foreach ($rosterDays as $day)
                         @php
@@ -1540,6 +1660,13 @@
                         @php
                             $rowKey = 'roster-row-'.$rowIndex;
                             $rowSearch = strtolower(($row['employee'] ?? '').' '.($row['company'] ?? '').' '.($row['work_email'] ?? ''));
+                            $rowCoveredCompanyIds = ($row['company_coverage_scope'] ?? 'single') === 'all'
+                                ? array_keys($companyCoverageLabels)
+                                : array_map('strval', $row['covered_company_ids'] ?? array_filter([$row['company_id'] ?? null]));
+                            $rowCoveredCompanyLabels = collect($rowCoveredCompanyIds)
+                                ->map(fn ($companyId) => $companyCoverageLabels[(string) $companyId] ?? null)
+                                ->filter()
+                                ->values();
                         @endphp
                         <div class="roster-person {{ $row['is_open'] ? 'is-open' : '' }}"
                             data-roster-key="{{ $rowKey }}"
@@ -1556,7 +1683,8 @@
                                 <span class="roster-avatar">{{ $row['initials'] }}</span>
                                 <div class="min-w-0">
                                     <div class="roster-person-name">{{ $row['employee'] }}</div>
-                                    <div class="roster-person-meta roster-person-company" title="{{ $row['company'] }}">{{ collect(preg_split('/\s+/', trim($row['company'] ?? '')))->map(fn($word) => strtoupper(substr($word, 0, 1)))->implode('') }}</div>
+                                    <div class="roster-person-meta roster-person-company"
+                                        title="{{ $rowCoveredCompanyLabels->pluck('name')->implode(', ') }}">{{ $rowCoveredCompanyLabels->pluck('code')->implode(', ') }}</div>
                                 </div>
                             </div>
                             <div class="roster-person-hours">
@@ -1659,6 +1787,8 @@
                                                     @csrf
                                                     <input type="hidden" name="month" value="{{ $selectedMonth->format('Y-m') }}">
                                                     <input type="hidden" name="day" value="{{ $selectedCalendarDateValue }}">
+                                                    <input type="hidden" name="start_date" value="{{ $scheduleRangeStart->toDateString() }}">
+                                                    <input type="hidden" name="end_date" value="{{ $scheduleRangeEnd->toDateString() }}">
                                                     <input type="hidden" name="last_known_write_date" value="{{ $shift['write_date_value'] }}">
                                                     <button type="submit" class="shift-icon-btn" title="Delete shift">
                                                         <i class="fas fa-trash"></i>
@@ -1712,7 +1842,7 @@
                 </div>
             @else
                 <div class="roster-scroll">
-                    <div class="area-grid" id="areaBoardGrid" style="--schedule-day-count: {{ count($areaBoardDays) }}">
+                    <div class="area-grid" id="areaBoardGrid" style="--schedule-day-count: {{ count($areaBoardDays) }};--schedule-grid-min-width:{{ 248 + (count($areaBoardDays) * 158) }}px">
                         <div class="area-corner">
                             <span>Area</span>
                             <span>{{ count($areaRows) }}</span>
@@ -1826,6 +1956,8 @@
                                                         @csrf
                                                         <input type="hidden" name="month" value="{{ $selectedMonth->format('Y-m') }}">
                                                         <input type="hidden" name="day" value="{{ $selectedCalendarDateValue }}">
+                                                        <input type="hidden" name="start_date" value="{{ $scheduleRangeStart->toDateString() }}">
+                                                        <input type="hidden" name="end_date" value="{{ $scheduleRangeEnd->toDateString() }}">
                                                         <input type="hidden" name="view" value="{{ $selectedView }}">
                                                         <input type="hidden" name="last_known_write_date" value="{{ $shift['write_date_value'] }}">
                                                         <button type="submit" class="shift-icon-btn" title="Delete shift">
@@ -1949,11 +2081,11 @@
                             <p class="mb-0 small text-muted">Month map</p>
                         </div>
                         <div class="text-nowrap">
-                            <a href="{{ route('manager.shifts.create', ['month' => $previousMonth->format('Y-m')]) }}"
+                            <a href="{{ route('manager.shifts.create', array_merge($viewQuery, ['month' => $previousMonth->format('Y-m'), 'day' => $scheduleRangeStart->toDateString()])) }}"
                                 class="btn btn-sm btn-outline-secondary" title="Previous month">
                                 <i class="fas fa-chevron-left"></i>
                             </a>
-                            <a href="{{ route('manager.shifts.create', ['month' => $nextMonth->format('Y-m')]) }}"
+                            <a href="{{ route('manager.shifts.create', array_merge($viewQuery, ['month' => $nextMonth->format('Y-m'), 'day' => $scheduleRangeStart->toDateString()])) }}"
                                 class="btn btn-sm btn-outline-secondary" title="Next month">
                                 <i class="fas fa-chevron-right"></i>
                             </a>
@@ -1968,7 +2100,7 @@
                         <div class="month-mini-grid">
                             @foreach ($shiftCalendar as $week)
                                 @foreach ($week as $day)
-                                    <a href="{{ route('manager.shifts.create', ['month' => $day['date']->format('Y-m'), 'day' => $day['date_value']]) }}"
+                                    <a href="{{ route('manager.shifts.create', array_merge($viewQuery, ['month' => $day['date']->format('Y-m'), 'day' => $day['date_value']])) }}"
                                         class="month-mini-day {{ $day['is_current_month'] ? '' : 'is-outside' }} {{ $day['is_selected'] ? 'is-selected' : '' }}">
                                         <span>{{ $day['day_number'] }}</span>
                                         <span class="month-mini-count">{{ $day['shift_count'] }}</span>
@@ -2084,6 +2216,8 @@
                                                 @csrf
                                                 <input type="hidden" name="month" value="{{ $selectedMonth->format('Y-m') }}">
                                                 <input type="hidden" name="day" value="{{ $selectedCalendarDateValue }}">
+                                                <input type="hidden" name="start_date" value="{{ $scheduleRangeStart->toDateString() }}">
+                                                <input type="hidden" name="end_date" value="{{ $scheduleRangeEnd->toDateString() }}">
                                                 <input type="hidden" name="last_known_write_date" value="{{ $shift['write_date_value'] }}">
                                                 <button type="submit" class="btn btn-outline-danger btn-sm">
                                                     <i class="fas fa-trash mr-1"></i>
@@ -2105,6 +2239,8 @@
         @csrf
         <input type="hidden" name="month" id="drag_shift_month">
         <input type="hidden" name="day" id="drag_shift_day">
+        <input type="hidden" name="start_date" value="{{ $scheduleRangeStart->toDateString() }}">
+        <input type="hidden" name="end_date" value="{{ $scheduleRangeEnd->toDateString() }}">
         <input type="hidden" name="employee_id" id="drag_shift_employee_id">
         <input type="hidden" name="role_id" id="drag_shift_role_id">
         <input type="hidden" name="company_id" id="drag_shift_company_id">
@@ -2121,6 +2257,8 @@
         @csrf
         <input type="hidden" name="month" value="{{ $selectedMonth->format('Y-m') }}">
         <input type="hidden" name="day" value="{{ $selectedCalendarDateValue }}">
+        <input type="hidden" name="start_date" value="{{ $scheduleRangeStart->toDateString() }}">
+        <input type="hidden" name="end_date" value="{{ $scheduleRangeEnd->toDateString() }}">
         <div id="bulkDeleteShiftFields"></div>
     </form>
 
@@ -2128,8 +2266,78 @@
         @csrf
         <input type="hidden" name="month" value="{{ $selectedMonth->format('Y-m') }}">
         <input type="hidden" name="day" value="{{ $selectedCalendarDateValue }}">
+        <input type="hidden" name="start_date" value="{{ $scheduleRangeStart->toDateString() }}">
+        <input type="hidden" name="end_date" value="{{ $scheduleRangeEnd->toDateString() }}">
         <div id="bulkOpenShiftFields"></div>
     </form>
+
+    <div id="schedule_scope_modal" class="modal fade schedule-scope-modal" tabindex="-1" role="dialog" aria-labelledby="scheduleScopeTitle" aria-hidden="true"
+        data-auto-open="{{ $showScheduleScopeModal ? '1' : '0' }}">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-content">
+                <form id="scheduleScopeForm" action="{{ route('manager.shifts.create') }}" method="GET">
+                    <input type="hidden" name="view" value="{{ $selectedView }}">
+                    <input type="hidden" name="month" id="scheduleScopeMonth" value="{{ $scheduleRangeStart->format('Y-m') }}">
+                    <input type="hidden" name="day" id="scheduleScopeDay" value="{{ $scheduleRangeStart->toDateString() }}">
+                    <div class="schedule-scope-hero">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <div class="schedule-kicker text-white mb-2"><i class="fas fa-sliders-h"></i> Schedule scope</div>
+                                <h4 class="mb-0" id="scheduleScopeTitle">Choose teams and working weeks</h4>
+                            </div>
+                            @unless($showScheduleScopeModal)
+                                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                            @endunless
+                        </div>
+                    </div>
+                    <div class="modal-body">
+                        <section class="scope-section">
+                            <div class="scope-section-head">
+                                <h5 class="scope-section-title">Companies</h5>
+                                <button type="button" class="btn btn-link btn-sm scope-select-all" id="scopeSelectAllCompanies"><i class="fas fa-check-double mr-1"></i>Select all</button>
+                            </div>
+                            <div class="scope-company-grid">
+                                @forelse($companies as $company)
+                                    <label class="scope-company-option" style="{{ $companyShiftStyles[(string) ($company['id'] ?? '')] ?? $defaultCompanyShiftStyle }}">
+                                        <input type="checkbox" class="scope-company-checkbox" value="{{ $company['id'] }}" data-label="{{ $company['name'] }}" checked>
+                                        <span class="scope-company-check" aria-hidden="true"><i class="fas fa-check"></i></span>
+                                        <span class="scope-company-copy"><strong>{{ $company['name'] }}</strong><small>Company</small></span>
+                                    </label>
+                                @empty
+                                    <div class="alert alert-warning mb-0" style="grid-column:1/-1">Companies are unavailable right now. You can still open the date range and review the Odoo connection message.</div>
+                                @endforelse
+                            </div>
+                        </section>
+                        <section class="scope-section">
+                            <div class="scope-section-head">
+                                <h5 class="scope-section-title">Date window</h5>
+                            </div>
+                            <div class="form-row scope-date-grid">
+                                <div class="form-group col-md-6 scope-date-field">
+                                    <label for="scheduleScopeStart">Start date</label>
+                                    <input type="date" name="start_date" id="scheduleScopeStart" class="form-control" value="{{ $scheduleRangeStart->toDateString() }}" required>
+                                </div>
+                                <div class="form-group col-md-6 scope-date-field">
+                                    <label for="scheduleScopeEnd">End date</label>
+                                    <input type="date" name="end_date" id="scheduleScopeEnd" class="form-control" value="{{ $scheduleRangeEnd->toDateString() }}" required>
+                                </div>
+                            </div>
+                            <div class="scope-range-preview" id="scheduleScopePreview" aria-live="polite">
+                                <span class="scope-range-preview-icon"><i class="fas fa-calendar-week"></i></span>
+                                <span class="scope-range-preview-copy"><small>Schedule window</small><strong id="scheduleScopePreviewDates"></strong></span>
+                                <span class="scope-range-weeks" id="scheduleScopePreviewWeeks"></span>
+                            </div>
+                            <div class="text-danger small font-weight-bold mt-2 d-none" id="scheduleScopeError"></div>
+                        </section>
+                    </div>
+                    <div class="modal-footer">
+                        @unless($showScheduleScopeModal)<button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button>@endunless
+                        <button type="submit" class="btn schedule-primary-action scope-open-action"><i class="fas fa-calendar-check mr-1"></i>Open schedule</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <div id="copy_schedule_period" class="modal fade copy-schedule-modal" tabindex="-1" role="dialog" aria-labelledby="copyScheduleTitle" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered" role="document">
@@ -2138,6 +2346,8 @@
                     @csrf
                     <input type="hidden" name="month" value="{{ $selectedMonth->format('Y-m') }}">
                     <input type="hidden" name="day" value="{{ $selectedCalendarDateValue }}">
+                    <input type="hidden" name="start_date" value="{{ $scheduleRangeStart->toDateString() }}">
+                    <input type="hidden" name="end_date" value="{{ $scheduleRangeEnd->toDateString() }}">
                     <div class="modal-header">
                         <div class="copy-modal-heading">
                             <span class="copy-modal-icon"><i class="fas fa-copy"></i></span>
@@ -2153,19 +2363,19 @@
                             <label for="copySchedulePeriod">What would you like to copy?</label>
                             <select id="copySchedulePeriod" name="period" class="form-control">
                                 <option value="day">Selected day only</option>
-                                <option value="two_weeks">Visible 2-week schedule</option>
+                                <option value="range">Visible {{ $scheduleRangeWeeks }}-week schedule</option>
                             </select>
-                            <small class="form-text text-muted">The two-week option copies all 14 visible days and preserves each shiftâ€™s day offset.</small>
+                            <small class="form-text text-muted">The range option copies all {{ $scheduleRangeDays }} visible days and preserves each shiftâ€™s day offset.</small>
                         </div>
                         <div class="copy-date-grid">
                             <div class="form-group mb-0">
                                 <label for="copyScheduleFrom">Copy from</label>
-                                <input id="copyScheduleFrom" type="date" name="source_date" class="form-control" value="{{ $selectedCalendarDateValue }}" required>
+                                <input id="copyScheduleFrom" type="date" name="source_date" class="form-control" value="{{ $scheduleRangeStart->toDateString() }}" required>
                             </div>
                             <span class="copy-date-arrow" aria-hidden="true"><i class="fas fa-arrow-right"></i></span>
                             <div class="form-group mb-0">
                                 <label for="copyScheduleTo">Copy to</label>
-                                <input id="copyScheduleTo" type="date" name="target_date" class="form-control" value="{{ $weeklyRoster['next_week_day']->toDateString() }}" required>
+                                <input id="copyScheduleTo" type="date" name="target_date" class="form-control" value="{{ $nextRangeStart->toDateString() }}" required>
                             </div>
                         </div>
                         <div class="copy-preserve-note">
@@ -2203,6 +2413,8 @@
                 @csrf
                 <input type="hidden" name="month" value="{{ $selectedMonth->format('Y-m') }}">
                 <input type="hidden" name="day" value="{{ $selectedCalendarDateValue }}">
+                <input type="hidden" name="start_date" value="{{ $scheduleRangeStart->toDateString() }}">
+                <input type="hidden" name="end_date" value="{{ $scheduleRangeEnd->toDateString() }}">
                 <div id="bulkUpdateShiftFields"></div>
                 <div class="modal-header"><h5 class="modal-title">Edit Selected Shifts</h5><button type="button" class="close" data-dismiss="modal"><span>&times;</span></button></div>
                 <div class="modal-body">
@@ -2223,7 +2435,7 @@
         <div class="modal-dialog modal-dialog-centered" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Publish Visible Week</h5>
+                    <h5 class="modal-title">Publish Visible Range</h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
@@ -2233,10 +2445,12 @@
                         @csrf
                         <input type="hidden" name="month" value="{{ $selectedMonth->format('Y-m') }}">
                         <input type="hidden" name="day" value="{{ $selectedCalendarDateValue }}">
+                        <input type="hidden" name="start_date" value="{{ $scheduleRangeStart->toDateString() }}">
+                        <input type="hidden" name="end_date" value="{{ $scheduleRangeEnd->toDateString() }}">
 
                         <div class="mb-3">
                             <div class="font-weight-bold">{{ $weekLabel }}</div>
-                            <div class="small text-muted">This publishes the shifts currently visible in the roster week.</div>
+                            <div class="small text-muted">This publishes all shifts in the selected {{ $scheduleRangeWeeks }}-week range across every company.</div>
                         </div>
 
                         <div class="schedule-alert is-{{ $unpublishedCount > 0 ? 'warning' : 'success' }} mb-3">
@@ -2245,7 +2459,7 @@
                             </span>
                             <div>
                                 <div class="schedule-alert-title">{{ $unpublishedCount }} unpublished shift{{ $unpublishedCount === 1 ? '' : 's' }}</div>
-                                <div class="schedule-alert-message">{{ $publishedCount }} shift{{ $publishedCount === 1 ? ' is' : 's are' }} already published for this week.</div>
+                                <div class="schedule-alert-message">{{ $publishedCount }} shift{{ $publishedCount === 1 ? ' is' : 's are' }} already published for this range.</div>
                             </div>
                         </div>
 
@@ -2268,7 +2482,7 @@
                         <div class="text-right">
                             <button type="submit" class="btn schedule-publish-action {{ $unpublishedCount === 0 ? 'is-clean' : '' }}">
                                 <i class="fas fa-bullhorn mr-1"></i>
-                                Publish Week
+                                Publish Range
                             </button>
                         </div>
                     </form>
@@ -2300,6 +2514,8 @@
                             @csrf
                             <input type="hidden" name="month" id="create_month_filter" value="{{ old('month', $selectedMonth->format('Y-m')) }}">
                             <input type="hidden" name="day" id="create_day_filter" value="{{ old('day', $selectedCalendarDateValue) }}">
+                            <input type="hidden" name="start_date" value="{{ $scheduleRangeStart->toDateString() }}">
+                            <input type="hidden" name="end_date" value="{{ $scheduleRangeEnd->toDateString() }}">
 
                             <div class="form-group create-shift-presets">
                                 <label>Quick time</label>
@@ -2494,6 +2710,8 @@
                         @csrf
                         <input type="hidden" name="month" value="{{ $selectedMonth->format('Y-m') }}">
                         <input type="hidden" name="day" value="{{ $selectedCalendarDateValue }}">
+                        <input type="hidden" name="start_date" value="{{ $scheduleRangeStart->toDateString() }}">
+                        <input type="hidden" name="end_date" value="{{ $scheduleRangeEnd->toDateString() }}">
                         <input type="hidden" name="last_known_write_date" id="edit_last_known_write_date">
                         <input type="hidden" name="editing_shift_id" id="editing_shift_id">
 
@@ -2620,11 +2838,25 @@
             const selectAllLocations = document.getElementById('selectAllLocations');
             const clearLocations = document.getElementById('clearLocations');
             const closeLocationPicker = document.getElementById('closeLocationPicker');
+            const scheduleScopeModal = document.getElementById('schedule_scope_modal');
+            const scheduleScopeForm = document.getElementById('scheduleScopeForm');
+            const scheduleScopeStart = document.getElementById('scheduleScopeStart');
+            const scheduleScopeEnd = document.getElementById('scheduleScopeEnd');
+            const scheduleScopeMonth = document.getElementById('scheduleScopeMonth');
+            const scheduleScopeDay = document.getElementById('scheduleScopeDay');
+            const scheduleScopePreview = document.getElementById('scheduleScopePreview');
+            const scheduleScopePreviewDates = document.getElementById('scheduleScopePreviewDates');
+            const scheduleScopePreviewWeeks = document.getElementById('scheduleScopePreviewWeeks');
+            const scheduleScopeError = document.getElementById('scheduleScopeError');
+            const scopeCompanyOptions = Array.from(document.querySelectorAll('.scope-company-checkbox'));
+            const scopeSelectAllCompanies = document.getElementById('scopeSelectAllCompanies');
             const deputyViewSwitch = document.getElementById('deputyViewSwitch');
             const mobileScheduleDay = document.getElementById('mobileScheduleDay');
             const rosterGrid = document.getElementById('teamRosterGrid');
             const areaGrid = document.getElementById('areaBoardGrid');
+            const visibleTeamMemberCount = document.getElementById('visibleTeamMemberCount');
             const selectedCompanyIds = new Set();
+            const companyCoverageLabels = @json($companyCoverageLabels);
             const schedulePage = document.querySelector('.schedule-page');
             const startTimeInput = document.getElementById('start_time');
             const endTimeInput = document.getElementById('end_time');
@@ -3575,6 +3807,24 @@
 
             updateBulkSelectionState();
 
+            const refreshRosterCompanyCoverage = (row, hasCompanyScope) => {
+                const companyLabel = row.querySelector('.roster-person-company');
+                if (!companyLabel) return;
+
+                const coveredCompanyIds = row.dataset.rosterAllCompanies === '1'
+                    ? Object.keys(companyCoverageLabels)
+                    : (row.dataset.rosterCompanyIds || row.dataset.rosterCompanyId || '').split(',').filter(Boolean);
+                const visibleCompanyIds = hasCompanyScope
+                    ? coveredCompanyIds.filter((companyId) => selectedCompanyIds.has(companyId))
+                    : coveredCompanyIds;
+                const visibleCompanies = visibleCompanyIds
+                    .map((companyId) => companyCoverageLabels[companyId])
+                    .filter(Boolean);
+
+                companyLabel.textContent = visibleCompanies.map((company) => company.code).join(', ');
+                companyLabel.title = visibleCompanies.map((company) => company.name).join(', ');
+            };
+
             const applyRosterFilters = () => {
                 const query = rosterSearch ? rosterSearch.value.trim().toLowerCase() : '';
                 const roleId = rosterRoleFilter ? rosterRoleFilter.value : '';
@@ -3588,6 +3838,7 @@
                 const hasShiftFilter = roleId || workLocationId || status === 'open' || status === 'assigned';
 
                 document.querySelectorAll('[data-roster-search]').forEach((row) => {
+                    refreshRosterCompanyCoverage(row, hasCompanyScope);
                     const key = row.dataset.rosterKey || '';
                     const haystack = row.dataset.rosterSearch || '';
                     const rowIsOpen = row.dataset.rosterOpen === '1';
@@ -3628,6 +3879,11 @@
                         element.classList.toggle('d-none', shouldHide);
                     });
                 });
+
+                if (visibleTeamMemberCount) {
+                    visibleTeamMemberCount.textContent = String(Array.from(document.querySelectorAll('[data-roster-search]'))
+                        .filter((row) => !row.classList.contains('d-none')).length);
+                }
             };
 
             [rosterSearch, rosterRoleFilter, rosterCompanyFilter, rosterWorkLocationFilter, rosterStatusFilter].forEach((control) => {
@@ -3679,6 +3935,88 @@
                 });
             }
 
+            const parseScopeDate = (value) => {
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return null;
+                const date = new Date(value + 'T12:00:00');
+                return Number.isNaN(date.getTime()) ? null : date;
+            };
+            const formatScopeDateValue = (date) => date.getFullYear() + '-'
+                + String(date.getMonth() + 1).padStart(2, '0') + '-'
+                + String(date.getDate()).padStart(2, '0');
+            const formatScopeDateLabel = (date) => new Intl.DateTimeFormat('en-AU', {
+                day: 'numeric', month: 'short', year: 'numeric',
+            }).format(date);
+            const normalizeScopeStart = (date) => {
+                const normalized = new Date(date);
+                const day = normalized.getDay();
+                normalized.setDate(normalized.getDate() - (day === 0 ? 6 : day - 1));
+                return normalized;
+            };
+            const normalizeScopeEnd = (date) => {
+                const normalized = new Date(date);
+                const day = normalized.getDay();
+                normalized.setDate(normalized.getDate() + (day === 0 ? 0 : 7 - day));
+                return normalized;
+            };
+            const refreshScheduleScopePreview = () => {
+                const requestedStart = parseScopeDate(scheduleScopeStart?.value || '');
+                const requestedEnd = parseScopeDate(scheduleScopeEnd?.value || '');
+                if (!requestedStart || !requestedEnd || !scheduleScopePreview) return;
+                const start = normalizeScopeStart(requestedStart);
+                const end = normalizeScopeEnd(requestedEnd);
+                const days = Math.round((end - start) / 86400000) + 1;
+                const weeks = Math.ceil(days / 7);
+                const exceedsLimit = days > 84;
+                if (scheduleScopePreviewDates) {
+                    scheduleScopePreviewDates.textContent = formatScopeDateLabel(start) + ' — ' + formatScopeDateLabel(end);
+                }
+                if (scheduleScopePreviewWeeks) {
+                    scheduleScopePreviewWeeks.textContent = weeks + ' week' + (weeks === 1 ? '' : 's');
+                }
+                scheduleScopePreview.classList.toggle('border-danger', exceedsLimit);
+                if (scheduleScopeError) {
+                    scheduleScopeError.textContent = exceedsLimit ? 'Choose a range of 12 weeks or less.' : '';
+                    scheduleScopeError.classList.toggle('d-none', !exceedsLimit);
+                }
+            };
+
+            [scheduleScopeStart, scheduleScopeEnd].forEach((control) => {
+                if (control) control.addEventListener('change', refreshScheduleScopePreview);
+            });
+            if (scopeSelectAllCompanies) {
+                scopeSelectAllCompanies.addEventListener('click', function() {
+                    scopeCompanyOptions.forEach((option) => option.checked = true);
+                });
+            }
+            if (scheduleScopeForm) {
+                scheduleScopeForm.addEventListener('submit', function(event) {
+                    const requestedStart = parseScopeDate(scheduleScopeStart?.value || '');
+                    const requestedEnd = parseScopeDate(scheduleScopeEnd?.value || '');
+                    const chosenCompanies = scopeCompanyOptions.filter((option) => option.checked).map((option) => option.value);
+                    const start = requestedStart ? normalizeScopeStart(requestedStart) : null;
+                    const end = requestedEnd ? normalizeScopeEnd(requestedEnd) : null;
+                    const days = start && end ? Math.round((end - start) / 86400000) + 1 : 0;
+
+                    if (!start || !end || end < start || days > 84 || (scopeCompanyOptions.length > 0 && chosenCompanies.length === 0)) {
+                        event.preventDefault();
+                        if (scheduleScopeError) {
+                            scheduleScopeError.textContent = scopeCompanyOptions.length > 0 && chosenCompanies.length === 0
+                                ? 'Select at least one company.'
+                                : (end < start ? 'End date must be on or after start date.' : 'Choose a range of 12 weeks or less.');
+                            scheduleScopeError.classList.remove('d-none');
+                        }
+                        return;
+                    }
+
+                    scheduleScopeStart.value = formatScopeDateValue(start);
+                    scheduleScopeEnd.value = formatScopeDateValue(end);
+                    if (scheduleScopeMonth) scheduleScopeMonth.value = scheduleScopeStart.value.slice(0, 7);
+                    if (scheduleScopeDay) scheduleScopeDay.value = scheduleScopeStart.value;
+                    window.sessionStorage.setItem('deputyScheduleCompanies', JSON.stringify(chosenCompanies));
+                    window.sessionStorage.setItem('deputyScheduleRange', JSON.stringify({ start: scheduleScopeStart.value, end: scheduleScopeEnd.value }));
+                });
+            }
+
             const applyLocationSelection = () => {
                 selectedCompanyIds.clear();
                 deputyLocationOptions.filter((option) => option.checked).forEach((option) => selectedCompanyIds.add(option.value));
@@ -3691,6 +4029,28 @@
                 }
 
                 window.sessionStorage.setItem('deputyScheduleCompanies', JSON.stringify(Array.from(selectedCompanyIds)));
+
+                if (companySelect) {
+                    const hasCompanyScope = selectedCompanyIds.size > 0 && selectedCompanyIds.size < deputyLocationOptions.length;
+                    Array.from(companySelect.options).forEach((option) => {
+                        if (!option.value) return;
+                        const matches = !hasCompanyScope || selectedCompanyIds.has(option.value);
+                        option.disabled = !matches;
+                        option.hidden = !matches;
+                    });
+
+                    const currentCompany = companySelect.options[companySelect.selectedIndex];
+                    if (currentCompany?.value && currentCompany.disabled) {
+                        companySelect.value = '';
+                    }
+
+                    if (hasCompanyScope && selectedCompanyIds.size === 1) {
+                        companySelect.value = Array.from(selectedCompanyIds)[0];
+                    }
+
+                    syncCompanyDependencies();
+                }
+
                 applyRosterFilters();
                 document.querySelectorAll('[data-area-company-id]').forEach((element) => {
                     const hasCompanyScope = selectedCompanyIds.size > 0 && selectedCompanyIds.size < deputyLocationOptions.length;
@@ -3701,18 +4061,30 @@
             deputyLocationOptions.forEach((option) => option.addEventListener('change', applyLocationSelection));
             document.querySelectorAll('.location-picker-menu').forEach((menu) => menu.addEventListener('click', (event) => event.stopPropagation()));
             if (selectAllLocations) selectAllLocations.addEventListener('click', function() { deputyLocationOptions.forEach((option) => option.checked = true); applyLocationSelection(); });
-            if (clearLocations) clearLocations.addEventListener('click', function() { deputyLocationOptions.forEach((option) => option.checked = false); applyLocationSelection(); });
+            if (clearLocations) clearLocations.addEventListener('click', function() { deputyLocationOptions.forEach((option) => option.checked = true); applyLocationSelection(); });
             if (closeLocationPicker) closeLocationPicker.addEventListener('click', function() { if (window.jQuery) window.jQuery(deputyLocationButton).dropdown('toggle'); });
 
             try {
                 const savedCompanies = JSON.parse(window.sessionStorage.getItem('deputyScheduleCompanies') || '[]');
                 if (Array.isArray(savedCompanies) && savedCompanies.length > 0) {
                     deputyLocationOptions.forEach((option) => option.checked = savedCompanies.includes(option.value));
+                    scopeCompanyOptions.forEach((option) => option.checked = savedCompanies.includes(option.value));
                 }
             } catch (error) {
                 window.sessionStorage.removeItem('deputyScheduleCompanies');
             }
             applyLocationSelection();
+            refreshScheduleScopePreview();
+            if (scheduleScopeModal && window.jQuery) {
+                window.jQuery(scheduleScopeModal).on('show.bs.modal', function() {
+                    const checkedCompanyIds = new Set(deputyLocationOptions.filter((option) => option.checked).map((option) => option.value));
+                    scopeCompanyOptions.forEach((option) => option.checked = checkedCompanyIds.size === 0 || checkedCompanyIds.has(option.value));
+                    refreshScheduleScopePreview();
+                });
+            }
+            if (scheduleScopeModal?.dataset.autoOpen === '1' && window.jQuery) {
+                window.jQuery(scheduleScopeModal).modal({ backdrop: 'static', keyboard: false, show: true });
+            }
 
             const applyMobileDayFocus = () => {
                 const isMobile = window.matchMedia('(max-width: 767.98px)').matches;
