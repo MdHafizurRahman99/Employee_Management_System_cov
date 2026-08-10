@@ -19,6 +19,51 @@ class OdooManagerPlanningServiceTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_hidden_open_shifts_do_not_inflate_team_roster_day_totals(): void
+    {
+        $service = new OdooManagerPlanningService(Mockery::mock(OdooServiceAccount::class));
+        $method = new \ReflectionMethod($service, 'buildWeeklyRoster');
+        $method->setAccessible(true);
+        $start = Carbon::parse('2026-08-17');
+        $assignedShift = [
+            'id' => 1,
+            'employee_id' => 35,
+            'employee' => 'Administrator',
+            'company' => 'Clinic',
+            'company_id' => 2,
+            'date_value' => '2026-08-20',
+            'duration_minutes' => 720,
+            'is_published' => false,
+        ];
+        $hiddenOpenShift = [
+            'id' => 2,
+            'employee_id' => null,
+            'employee' => 'Unassigned',
+            'company' => 'Clinic',
+            'company_id' => 2,
+            'date_value' => '2026-08-20',
+            'duration_minutes' => 37800,
+            'is_published' => false,
+        ];
+
+        $roster = $method->invoke(
+            $service,
+            $start,
+            [['id' => 35, 'name' => 'Administrator', 'company' => 'Clinic', 'company_id' => 2]],
+            [$assignedShift, $hiddenOpenShift],
+            [],
+            $start,
+            $start->copy()->endOfWeek()
+        );
+        $thursday = collect($roster['days'])->firstWhere('date_value', '2026-08-20');
+
+        $this->assertSame(1, $thursday['shift_count']);
+        $this->assertSame('12h', $thursday['hours_label']);
+        $this->assertSame(1, $roster['summary']['shift_count']);
+        $this->assertSame('12h', $roster['summary']['scheduled_hours']);
+        $this->assertSame(1, $roster['summary']['open_shifts']);
+    }
+
     public function test_it_builds_shift_creation_page_data_from_odoo(): void
     {
         Carbon::setTestNow('2026-06-08 09:00:00');

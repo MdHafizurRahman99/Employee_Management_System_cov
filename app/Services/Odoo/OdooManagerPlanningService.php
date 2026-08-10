@@ -1314,10 +1314,12 @@ class OdooManagerPlanningService
 
             $shiftsByEmployeeAndDate[$employeeId][$dateValue][] = $shift;
             $weekShifts[] = $shift;
-            $dayMinutes[$dateValue] += $minutes;
-            $dayShiftCounts[$dateValue]++;
 
             if ($employeeId > 0) {
+                // Team view hides open shifts, so its header totals must only describe
+                // assigned shifts that are actually visible in the roster rows.
+                $dayMinutes[$dateValue] += $minutes;
+                $dayShiftCounts[$dateValue]++;
                 $employeeNamesFromShifts[$employeeId] = [
                     'id' => $employeeId,
                     'name' => (string) ($shift['employee'] ?? 'Employee'),
@@ -1393,7 +1395,13 @@ class OdooManagerPlanningService
                 : null,
             $weekShifts
         ))));
-        $totalMinutes = array_sum(array_map(fn (array $shift): int => $this->shiftDurationMinutes($shift), $weekShifts));
+        $visibleWeekShifts = array_values(array_filter(
+            $weekShifts,
+            fn (array $shift): bool => isset($shift['employee_id'])
+                && is_numeric($shift['employee_id'])
+                && (int) $shift['employee_id'] > 0
+        ));
+        $totalMinutes = array_sum(array_map(fn (array $shift): int => $this->shiftDurationMinutes($shift), $visibleWeekShifts));
         $openShiftCount = count($shiftsByEmployeeAndDate[0] ?? []);
         $publishedShiftCount = count(array_filter($weekShifts, fn (array $shift): bool => (bool) ($shift['is_published'] ?? false)));
         $updatedShiftCount = count(array_filter($weekShifts, fn (array $shift): bool => (bool) ($shift['was_published'] ?? false)));
@@ -1402,7 +1410,7 @@ class OdooManagerPlanningService
             $weekShifts,
             fn (array $shift): bool => (bool) ($shift['is_published'] ?? false) && (bool) ($shift['requires_confirmation'] ?? false)
         ));
-        $insights = $this->buildRosterInsights($days, $rows, $weekShifts, $dayShiftCounts, $dayMinutes);
+        $insights = $this->buildRosterInsights($days, $rows, $visibleWeekShifts, $dayShiftCounts, $dayMinutes);
 
         return [
             'week_start' => $weekStart,
@@ -1414,7 +1422,7 @@ class OdooManagerPlanningService
             'days' => $days,
             'rows' => $rows,
             'summary' => [
-                'shift_count' => count($weekShifts),
+                'shift_count' => count($visibleWeekShifts),
                 'scheduled_hours' => $this->formatMinutesAsHours($totalMinutes),
                 'people_scheduled' => count($scheduledPeople),
                 'open_shifts' => $openShiftCount,
@@ -1426,8 +1434,8 @@ class OdooManagerPlanningService
                 'pending_leave' => (int) ($timeOff['summary']['pending_leave'] ?? 0),
                 'unavailable_people' => (int) ($timeOff['summary']['unavailable_people'] ?? 0),
                 'coverage_days' => count(array_filter($dayShiftCounts)),
-                'average_shift' => count($weekShifts) > 0
-                    ? $this->formatMinutesAsHours((int) round($totalMinutes / count($weekShifts)))
+                'average_shift' => count($visibleWeekShifts) > 0
+                    ? $this->formatMinutesAsHours((int) round($totalMinutes / count($visibleWeekShifts)))
                     : '0h',
                 'busiest_day' => $insights['busiest_day'],
                 'unscheduled_people' => $insights['unscheduled_people'],
