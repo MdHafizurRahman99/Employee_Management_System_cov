@@ -237,7 +237,7 @@ class OdooManagerPayrollServiceTest extends TestCase
         $this->assertTrue($data['payrollAvailable']);
         $this->assertCount(2, $data['payslips']);
         $this->assertSame(92, $data['payslips'][0]['id']);
-        $this->assertSame('16 Jun 2026 - 30 Jun 2026', $data['payslips'][0]['period_label']);
+        $this->assertSame('16-06-2026 - 30-06-2026', $data['payslips'][0]['period_label']);
         $this->assertSame(2, $data['summary']['payslip_count']);
         $this->assertSame('6,500.00', $data['summary']['gross_pay_total_label']);
         $this->assertSame('810.00', $data['summary']['deductions_total_label']);

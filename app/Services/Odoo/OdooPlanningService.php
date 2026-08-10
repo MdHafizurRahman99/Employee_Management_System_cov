@@ -167,7 +167,7 @@ class OdooPlanningService
             'id' => (int) ($record['id'] ?? 0),
             'title' => (string) ($record['name'] ?? $role['name'] ?? 'Assigned Shift'),
             'date_value' => $startAt->toDateString(),
-            'date_label' => $startAt->format('D, d M Y'),
+            'date_label' => $startAt->format('d-m-Y'),
             'start_label' => $startAt->format('h:i A'),
             'end_label' => $endAt->format('h:i A'),
             'role' => $role['name'] ?? 'Unassigned',

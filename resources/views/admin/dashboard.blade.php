@@ -180,7 +180,7 @@
                                     <tr>
                                         <th class="text-muted pl-0">Last Sync</th>
                                         <td>
-                                            {{ optional(auth()->user()->odoo_last_synced_at)->format('M d, Y h:i A') ?? 'Not yet synced' }}
+                                            {{ optional(auth()->user()->odoo_last_synced_at)->format('d-m-Y h:i A') ?? 'Not yet synced' }}
                                         </td>
                                     </tr>
                                 </tbody>

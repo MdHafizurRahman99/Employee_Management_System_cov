@@ -271,8 +271,8 @@ class OdooLeaveService
                 'request_unit_label' => $this->requestUnitLabel($requestUnit),
                 'start_date' => $startDate?->toDateString(),
                 'end_date' => $endDate?->toDateString(),
-                'start_date_label' => $startDate?->format('d M Y') ?? 'N/A',
-                'end_date_label' => $endDate?->format('d M Y') ?? 'N/A',
+                'start_date_label' => $startDate?->format('d-m-Y') ?? 'N/A',
+                'end_date_label' => $endDate?->format('d-m-Y') ?? 'N/A',
                 'duration_label' => $requestUnit === 'hour'
                     ? number_format($numberOfHours, 2).' hour'.($numberOfHours === 1.0 ? '' : 's')
                     : number_format($numberOfDays, 2).' day'.($numberOfDays === 1.0 ? '' : 's'),
@@ -282,7 +282,7 @@ class OdooLeaveService
                 'status_class' => $status['class'],
                 'can_cancel' => $canCancel && $this->isPendingState((string) ($record['state'] ?? '')),
                 'submitted_at' => $createdAt,
-                'submitted_at_label' => $createdAt?->format('d M Y h:i A') ?? 'N/A',
+                'submitted_at_label' => $createdAt?->format('d-m-Y h:i A') ?? 'N/A',
                 'planning_slot_id' => $planningSlot['id'],
                 'planning_slot' => $planningSlot['name'] ?? null,
                 'planning_slot_title' => $planningSlotTitle !== '' ? $planningSlotTitle : ($planningSlot['name'] ?? null),
@@ -290,8 +290,8 @@ class OdooLeaveService
                 'planning_company_name' => $planningCompanyName !== '' ? $planningCompanyName : null,
                 'planning_start_at' => $planningStartAt,
                 'planning_end_at' => $planningEndAt,
-                'planning_start_label' => $planningStartAt?->format('d M Y h:i A'),
-                'planning_end_label' => $planningEndAt?->format('d M Y h:i A'),
+                'planning_start_label' => $planningStartAt?->format('d-m-Y h:i A'),
+                'planning_end_label' => $planningEndAt?->format('d-m-Y h:i A'),
             ];
         }, $records)));
     }

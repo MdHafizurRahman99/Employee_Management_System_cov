@@ -271,8 +271,8 @@ class OdooManagerAttendanceService
                 'id' => (int) $record['id'],
                 'employee_id' => $employee['id'],
                 'employee' => $employee['name'] ?? 'Employee',
-                'check_in_label' => $checkInAt->format('d M Y h:i A'),
-                'check_out_label' => $checkOutAt ? $checkOutAt->format('d M Y h:i A') : 'Missing clock-out',
+                'check_in_label' => $checkInAt->format('d-m-Y h:i A'),
+                'check_out_label' => $checkOutAt ? $checkOutAt->format('d-m-Y h:i A') : 'Missing clock-out',
                 'worked_hours' => $workedHours,
                 'worked_hours_label' => $missingClockOut && $workedHours <= 0
                     ? 'Pending'
@@ -285,7 +285,7 @@ class OdooManagerAttendanceService
                 'check_in_form_value' => $checkInAt->format('Y-m-d\TH:i'),
                 'check_out_form_value' => $checkOutAt ? $checkOutAt->format('Y-m-d\TH:i') : '',
                 'write_date_value' => $writeDate,
-                'updated_label' => $writeDate !== '' ? ($this->parseDateTime($writeDate)?->format('d M Y h:i A') ?? 'N/A') : 'N/A',
+                'updated_label' => $writeDate !== '' ? ($this->parseDateTime($writeDate)?->format('d-m-Y h:i A') ?? 'N/A') : 'N/A',
             ];
         }, $records)));
     }
@@ -353,8 +353,8 @@ class OdooManagerAttendanceService
             'id' => (int) $record['id'],
             'employee_id' => $employee['id'],
             'employee' => $employee['name'] ?? 'Employee',
-            'check_in_label' => $checkInAt->format('d M Y h:i A'),
-            'check_out_label' => $checkOutAt ? $checkOutAt->format('d M Y h:i A') : 'Missing clock-out',
+            'check_in_label' => $checkInAt->format('d-m-Y h:i A'),
+            'check_out_label' => $checkOutAt ? $checkOutAt->format('d-m-Y h:i A') : 'Missing clock-out',
             'worked_hours' => $workedHours,
             'worked_hours_label' => $missingClockOut && $workedHours <= 0
                 ? 'Pending'
@@ -367,7 +367,7 @@ class OdooManagerAttendanceService
             'check_in_form_value' => $checkInAt->format('Y-m-d\TH:i'),
             'check_out_form_value' => $checkOutAt ? $checkOutAt->format('Y-m-d\TH:i') : '',
             'write_date_value' => $writeDate,
-            'updated_label' => $writeDate !== '' ? ($this->parseDateTime($writeDate)?->format('d M Y h:i A') ?? 'N/A') : 'N/A',
+            'updated_label' => $writeDate !== '' ? ($this->parseDateTime($writeDate)?->format('d-m-Y h:i A') ?? 'N/A') : 'N/A',
         ];
     }
 
@@ -378,7 +378,7 @@ class OdooManagerAttendanceService
     private function summarizeRecords(array $records, Carbon $fromDate, Carbon $toDate): array
     {
         return [
-            'range_label' => $fromDate->format('d M Y').' - '.$toDate->format('d M Y'),
+            'range_label' => $fromDate->format('d-m-Y').' - '.$toDate->format('d-m-Y'),
             'records_count' => count($records),
             'employees_count' => count(array_unique(array_map(fn (array $record) => (int) ($record['employee_id'] ?? 0), $records))),
             'missing_clock_out_count' => count(array_filter($records, fn (array $record) => $record['missing_clock_out'])),
@@ -401,7 +401,7 @@ class OdooManagerAttendanceService
     private function emptySummary(Carbon $fromDate, Carbon $toDate): array
     {
         return [
-            'range_label' => $fromDate->format('d M Y').' - '.$toDate->format('d M Y'),
+            'range_label' => $fromDate->format('d-m-Y').' - '.$toDate->format('d-m-Y'),
             'records_count' => 0,
             'employees_count' => 0,
             'missing_clock_out_count' => 0,

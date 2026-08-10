@@ -169,7 +169,7 @@ class AttendanceTrackerService
     {
         return [
             'date' => $startedAt->toDateString(),
-            'date_label' => $startedAt->format('D, d M Y'),
+            'date_label' => $startedAt->format('d-m-Y'),
             'first_check_in_at' => $startedAt,
             'last_check_out_at' => null,
             'gross_minutes' => 0,
@@ -317,8 +317,8 @@ class AttendanceTrackerService
         return [
             'status_label' => $activeBreak ? 'On Break' : 'Working',
             'status_class' => $activeBreak ? 'warning' : 'success',
-            'active_session_started_label' => $activeSession->started_at->format('d M Y h:i A'),
-            'active_break_started_label' => $activeBreak?->started_at?->format('d M Y h:i A'),
+            'active_session_started_label' => $activeSession->started_at->format('d-m-Y h:i A'),
+            'active_break_started_label' => $activeBreak?->started_at?->format('d-m-Y h:i A'),
             'live_gross_hours_label' => $this->formatMinutes($metrics['gross_minutes']),
             'live_break_hours_label' => $this->formatMinutes($metrics['break_minutes']),
             'live_payable_hours_label' => $this->formatMinutes($metrics['payable_minutes']),

@@ -204,7 +204,7 @@ class OdooManagerLeaveReportService
                 (string) $row['remaining_balance_unit']
             );
             $row['last_leave_label'] = $row['last_end_date'] instanceof Carbon
-                ? $row['last_end_date']->format('d M Y')
+                ? $row['last_end_date']->format('d-m-Y')
                 : 'N/A';
             $row['has_balance'] = $row['remaining_balance'] !== null;
             unset($row['last_end_date']);
@@ -754,7 +754,7 @@ class OdooManagerLeaveReportService
     private function summarizeRows(array $rows, Carbon $fromDate, Carbon $toDate): array
     {
         return [
-            'range_label' => $fromDate->format('d M Y').' - '.$toDate->format('d M Y'),
+            'range_label' => $fromDate->format('d-m-Y').' - '.$toDate->format('d-m-Y'),
             'row_count' => count($rows),
             'employees_count' => count(array_unique(array_filter(array_map(
                 fn (array $row) => (int) ($row['employee_id'] ?? 0),
@@ -807,7 +807,7 @@ class OdooManagerLeaveReportService
     private function emptySummary(Carbon $fromDate, Carbon $toDate): array
     {
         return [
-            'range_label' => $fromDate->format('d M Y').' - '.$toDate->format('d M Y'),
+            'range_label' => $fromDate->format('d-m-Y').' - '.$toDate->format('d-m-Y'),
             'row_count' => 0,
             'employees_count' => 0,
             'leave_types_count' => 0,

@@ -184,7 +184,7 @@ class ManagerLeaveReportController extends Controller
             'leaveTypes' => [],
             'rows' => [],
             'summary' => [
-                'range_label' => $fromDate->format('d M Y').' - '.$toDate->format('d M Y'),
+                'range_label' => $fromDate->format('d-m-Y').' - '.$toDate->format('d-m-Y'),
                 'row_count' => 0,
                 'employees_count' => 0,
                 'leave_types_count' => 0,

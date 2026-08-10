@@ -106,7 +106,7 @@ class ManagerAttendanceController extends Controller
     private function emptySummary(Carbon $fromDate, Carbon $toDate): array
     {
         return [
-            'range_label' => $fromDate->format('d M Y').' - '.$toDate->format('d M Y'),
+            'range_label' => $fromDate->format('d-m-Y').' - '.$toDate->format('d-m-Y'),
             'records_count' => 0,
             'employees_count' => 0,
             'missing_clock_out_count' => 0,

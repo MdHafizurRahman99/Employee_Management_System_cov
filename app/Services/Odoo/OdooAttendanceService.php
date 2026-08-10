@@ -131,7 +131,7 @@ class OdooAttendanceService
     {
         return [
             'date' => $checkInAt->toDateString(),
-            'date_label' => $checkInAt->format('D, d M Y'),
+            'date_label' => $checkInAt->format('d-m-Y'),
             'clock_in_at' => $checkInAt,
             'clock_out_at' => null,
             'worked_hours' => 0.0,

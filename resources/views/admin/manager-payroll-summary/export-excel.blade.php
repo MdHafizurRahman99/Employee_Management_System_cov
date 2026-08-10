@@ -10,7 +10,7 @@
             <th colspan="8">Payroll Summary Report - {{ $reportSummary['month_label'] }}</th>
         </tr>
         <tr>
-            <td colspan="8">Generated: {{ $generatedAt->format('d M Y h:i A') }}</td>
+            <td colspan="8">Generated: {{ $generatedAt->format('d-m-Y h:i A') }}</td>
         </tr>
         <tr>
             <th>Payslips</th>

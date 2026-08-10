@@ -31,7 +31,7 @@ class EmployeeShiftController extends Controller
             'todayShift' => null,
             'shiftCalendar' => [],
             'selectedCalendarDate' => $selectedMonth->copy()->startOfMonth(),
-            'selectedCalendarDateLabel' => $selectedMonth->format('D, d M Y'),
+            'selectedCalendarDateLabel' => $selectedMonth->format('d-m-Y'),
             'selectedCalendarDateValue' => $selectedMonth->format('Y-m-d'),
             'selectedCalendarShifts' => [],
         ];
@@ -206,7 +206,7 @@ class EmployeeShiftController extends Controller
             'source_shift_title' => isset($shift['title']) ? (string) $shift['title'] : 'Assigned Shift',
             'source_shift_role' => isset($shift['role']) ? (string) $shift['role'] : null,
             'source_shift_company' => isset($shift['company']) ? (string) $shift['company'] : null,
-            'source_shift_date_label' => isset($shift['date_label']) ? (string) $shift['date_label'] : $startAt->format('D, d M Y'),
+            'source_shift_date_label' => isset($shift['date_label']) ? (string) $shift['date_label'] : $startAt->format('d-m-Y'),
             'source_shift_time_label' => trim(sprintf(
                 '%s - %s',
                 isset($shift['start_label']) ? (string) $shift['start_label'] : $startAt->format('h:i A'),

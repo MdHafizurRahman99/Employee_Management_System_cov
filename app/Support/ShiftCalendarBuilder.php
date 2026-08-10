@@ -52,7 +52,7 @@ class ShiftCalendarBuilder
         return [
             'weeks' => $weeks,
             'selected_date' => $selectedDate,
-            'selected_date_label' => $selectedDate->format('D, d M Y'),
+            'selected_date_label' => $selectedDate->format('d-m-Y'),
             'selected_date_value' => $selectedDate->toDateString(),
             'selected_date_shifts' => $shiftsByDate[$selectedDate->toDateString()] ?? [],
         ];

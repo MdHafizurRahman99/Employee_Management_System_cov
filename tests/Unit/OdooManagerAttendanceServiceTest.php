@@ -149,7 +149,7 @@ class OdooManagerAttendanceServiceTest extends TestCase
         $this->assertTrue($data['records'][1]['missing_clock_out']);
         $this->assertSame('Missing Clock-out', $data['records'][1]['status_label']);
 
-        $this->assertSame('01 Jun 2026 - 30 Jun 2026', $data['summary']['range_label']);
+        $this->assertSame('01-06-2026 - 30-06-2026', $data['summary']['range_label']);
         $this->assertSame(2, $data['summary']['records_count']);
         $this->assertSame(2, $data['summary']['employees_count']);
         $this->assertSame(1, $data['summary']['missing_clock_out_count']);

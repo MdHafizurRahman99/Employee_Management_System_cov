@@ -58,7 +58,7 @@
             @if(!$preview)
                 <div class="auto-empty"><div><div class="auto-empty-icon mx-auto"><i class="fas fa-project-diagram"></i></div><h4>Build a reviewable draft</h4><p class="text-muted mb-0">Choose a location and hours. Nothing is created until you inspect the assignments and approve the draft.</p></div></div>
             @else
-                <div class="auto-panel-head d-flex justify-content-between align-items-center"><span>{{ $weekStart->format('M j') }}–{{ $weekEnd->format('M j, Y') }}</span><small>{{ $preview['employee_count'] }} eligible location employees · {{ $preview['area_count'] }} coverage areas</small></div>
+                <div class="auto-panel-head d-flex justify-content-between align-items-center"><span>{{ $weekStart->format('d-m-Y') }} – {{ $weekEnd->format('d-m-Y') }}</span><small>{{ $preview['employee_count'] }} eligible location employees · {{ $preview['area_count'] }} coverage areas</small></div>
                 <div class="auto-panel-body">
                     <div class="auto-metrics">
                         <div class="auto-metric"><span>Coverage cells</span><strong>{{ $preview['summary']['coverage_cells'] }}</strong></div>
@@ -76,7 +76,7 @@
                             <div class="auto-row auto-row-head"><span>Date</span><span>Area</span><span>Hours</span><span>Assignment</span><span>Status</span></div>
                             @foreach($preview['rows'] as $row)
                                 <div class="auto-row">
-                                    <strong>{{ \Carbon\Carbon::parse($row['date'])->format('D, M j') }}</strong>
+                                    <strong>{{ \Carbon\Carbon::parse($row['date'])->format('d-m-Y') }}</strong>
                                     <div class="auto-area"><span class="auto-area-dot" style="background:{{ $row['area_color'] }}"></span><span>{{ $row['area'] }}<small class="d-block text-muted">{{ $row['existing_positions'] }}/{{ $row['required'] }} existing</small></span></div>
                                     <span>{{ $row['start_time'] }}–{{ $row['end_time'] }}</span>
                                     <div><span class="auto-person">{{ $row['employee'] ?: 'Not scheduled' }}</span>@if($row['reason'])<small class="auto-reason">{{ $row['reason'] }}</small>@endif</div>

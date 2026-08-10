@@ -213,8 +213,8 @@ class OdooManagerPayrollService
             $payload['name'] = sprintf(
                 '%s Payslip %s - %s',
                 $employee['name'],
-                $periodStart->format('d M Y'),
-                $periodEnd->format('d M Y')
+                $periodStart->format('d-m-Y'),
+                $periodEnd->format('d-m-Y')
             );
         }
 
@@ -439,14 +439,14 @@ class OdooManagerPayrollService
                 'period_start_value' => $periodStart?->format('Y-m-d'),
                 'period_end_value' => $periodEnd?->format('Y-m-d'),
                 'period_label' => $periodStart && $periodEnd
-                    ? $periodStart->format('d M Y').' - '.$periodEnd->format('d M Y')
+                    ? $periodStart->format('d-m-Y').' - '.$periodEnd->format('d-m-Y')
                     : 'N/A',
                 'gross_pay' => $totals['gross_pay'],
                 'deductions' => $totals['deductions'],
                 'net_pay' => $totals['net_pay'],
                 'write_date_value' => $writeDate,
                 'updated_label' => $writeDate !== ''
-                    ? ($this->parseDateTime($writeDate)?->format('d M Y h:i A') ?? 'N/A')
+                    ? ($this->parseDateTime($writeDate)?->format('d-m-Y h:i A') ?? 'N/A')
                     : 'N/A',
             ];
         }, $records)));

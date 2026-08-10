@@ -1251,7 +1251,7 @@ class OdooManagerPlanningService
             'work_location' => $workLocation['name'] ?? 'No work location',
             'work_location_id' => $workLocation['id'],
             'date_value' => $startAt->toDateString(),
-            'date_label' => $startAt->format('D, d M Y'),
+            'date_label' => $startAt->format('d-m-Y'),
             'time_label' => $startAt->format('h:i A').' - '.$endAt->format('h:i A'),
             'shift_date_value' => $startAt->format('Y-m-d'),
             'start_time_value' => $startAt->format('H:i'),
@@ -1260,7 +1260,7 @@ class OdooManagerPlanningService
             'duration_label' => $this->formatMinutesAsHours($startAt->diffInMinutes($endAt)),
             'tone' => $this->shiftTone($role['name'] ?? $record['name'] ?? 'Shift'),
             'write_date_value' => $writeDate,
-            'updated_label' => $writeDate !== '' ? ($this->parseDateTime($writeDate)?->format('d M Y h:i A') ?? 'N/A') : 'N/A',
+            'updated_label' => $writeDate !== '' ? ($this->parseDateTime($writeDate)?->format('d-m-Y h:i A') ?? 'N/A') : 'N/A',
             'start_at' => $startAt,
             'end_at' => $endAt,
             '_odoo_schedule_meta' => array_intersect_key($record, array_flip(['ems_publish_state','ems_published_at','ems_published_by','ems_requires_confirmation','ems_confirmation_status','ems_confirmation_note','ems_confirmation_responded_at','ems_confirmation_responded_by','ems_was_open_shift_claim','ems_claimed_at','ems_claimed_by','ems_notification_mode','ems_notification_status','ems_notification_sent_at','ems_reminder_sent_at','ems_notification_error'])),
@@ -1853,7 +1853,7 @@ class OdooManagerPlanningService
 
         foreach ($days as $day) {
             if (($day['date_value'] ?? '') === $bestDate && ($day['date'] ?? null) instanceof Carbon) {
-                return $day['date']->format('D, M j').' ('.$bestShiftCount.')';
+                return $day['date']->format('d-m-Y').' ('.$bestShiftCount.')';
             }
         }
 
@@ -1923,10 +1923,10 @@ class OdooManagerPlanningService
     private function formatWeekLabel(Carbon $weekStart, Carbon $weekEnd): string
     {
         if ($weekStart->isSameMonth($weekEnd)) {
-            return $weekStart->format('M j').' - '.$weekEnd->format('j, Y');
+            return $weekStart->format('d-m-Y').' - '.$weekEnd->format('d-m-Y');
         }
 
-        return $weekStart->format('M j').' - '.$weekEnd->format('M j, Y');
+        return $weekStart->format('d-m-Y').' - '.$weekEnd->format('d-m-Y');
     }
 
     private function initials(string $name): string

@@ -1692,7 +1692,7 @@
                                 $cellDiary = $row['is_open'] ? [] : ($employeeDiaryByCell[$row['employee_id']][$day['date_value']] ?? []);
                             @endphp
                             <div class="roster-cell schedule-drop-cell {{ $day['is_today'] ? 'is-today' : '' }} {{ $day['is_selected'] ? 'is-selected' : '' }}"
-                                tabindex="0" role="gridcell" aria-label="{{ $row['employee'] }} on {{ $day['date']->format('l, F j') }}"
+                                tabindex="0" role="gridcell" aria-label="{{ $row['employee'] }} on {{ $day['date']->format('d-m-Y') }}"
                                 data-roster-key="{{ $rowKey }}"
                                 data-shift-date="{{ $day['date_value'] }}"
                                 data-employee-id="{{ $row['is_open'] ? '' : $row['employee_id'] }}"
@@ -1875,7 +1875,7 @@
                                     $cell = $row['cells'][$day['date_value']] ?? ['shifts' => [], 'shift_count' => 0, 'assigned_count' => 0, 'open_count' => 0, 'hours_label' => '0h'];
                                 @endphp
                                 <div class="area-cell schedule-drop-cell coverage-{{ $cell['coverage_status'] ?? 'unconfigured' }} {{ $day['is_today'] ? 'is-today' : '' }} {{ $day['is_selected'] ? 'is-selected' : '' }}"
-                                    tabindex="0" role="gridcell" aria-label="{{ $row['role'] }} on {{ $day['date']->format('l, F j') }}"
+                                    tabindex="0" role="gridcell" aria-label="{{ $row['role'] }} on {{ $day['date']->format('d-m-Y') }}"
                                     data-area-key="{{ $areaKey }}"
                                     data-area-company-id="{{ $row['company_id'] ?? '' }}"
                                     data-shift-date="{{ $day['date_value'] }}"
@@ -3971,9 +3971,9 @@
             const formatScopeDateValue = (date) => date.getFullYear() + '-'
                 + String(date.getMonth() + 1).padStart(2, '0') + '-'
                 + String(date.getDate()).padStart(2, '0');
-            const formatScopeDateLabel = (date) => new Intl.DateTimeFormat('en-AU', {
-                day: 'numeric', month: 'short', year: 'numeric',
-            }).format(date);
+            const formatScopeDateLabel = (date) => String(date.getDate()).padStart(2, '0') + '-'
+                + String(date.getMonth() + 1).padStart(2, '0') + '-'
+                + date.getFullYear();
             const normalizeScopeStart = (date) => {
                 const normalized = new Date(date);
                 const day = normalized.getDay();

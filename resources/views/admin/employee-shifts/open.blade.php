@@ -34,7 +34,7 @@
 
 <div class="container-fluid open-page">
     <section class="open-hero">
-        <div class="open-hero-copy"><div class="open-kicker">Pick up available hours</div><h1 class="open-title">Open Shifts</h1><p class="mb-0">{{ $weekStart->format('M j') }}–{{ $weekEnd->format('M j, Y') }} · Only shifts matching your Odoo company and planning roles are shown.</p></div>
+        <div class="open-hero-copy"><div class="open-kicker">Pick up available hours</div><h1 class="open-title">Open Shifts</h1><p class="mb-0">{{ $weekStart->format('d-m-Y') }} – {{ $weekEnd->format('d-m-Y') }} · Only shifts matching your Odoo company and planning roles are shown.</p></div>
         <div class="open-hero-actions">
             <a class="btn btn-light btn-sm" href="{{ route('employee.shifts.index') }}"><i class="fas fa-calendar-alt mr-1"></i>My Shifts</a>
             <a class="btn btn-outline-light btn-sm" href="{{ route('employee.open-shifts.index',['day'=>$weekStart->copy()->subWeek()->toDateString()]) }}"><i class="fas fa-chevron-left mr-1"></i>Previous week</a>

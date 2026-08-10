@@ -17,7 +17,7 @@
 <div class="container-fluid day-details">
     <header class="day-details-hero">
         <div><h1>Week notes & blocked time</h1><p>Give schedulers the operational context they need before placing a shift.</p></div>
-        <div class="week-nav"><a class="btn btn-light btn-sm" href="{{ route('manager.schedule-days.index',['week'=>$weekStart->copy()->subWeek()->toDateString()]) }}"><i class="fas fa-chevron-left"></i></a><strong>{{ $weekStart->format('M j') }} – {{ $weekEnd->format('M j, Y') }}</strong><a class="btn btn-light btn-sm" href="{{ route('manager.schedule-days.index',['week'=>$weekStart->copy()->addWeek()->toDateString()]) }}"><i class="fas fa-chevron-right"></i></a><a class="btn btn-outline-light btn-sm" href="{{ route('manager.shifts.create',['month'=>$weekStart->format('Y-m'),'day'=>$weekStart->toDateString()]) }}">Schedule</a></div>
+        <div class="week-nav"><a class="btn btn-light btn-sm" href="{{ route('manager.schedule-days.index',['week'=>$weekStart->copy()->subWeek()->toDateString()]) }}"><i class="fas fa-chevron-left"></i></a><strong>{{ $weekStart->format('d-m-Y') }} – {{ $weekEnd->format('d-m-Y') }}</strong><a class="btn btn-light btn-sm" href="{{ route('manager.schedule-days.index',['week'=>$weekStart->copy()->addWeek()->toDateString()]) }}"><i class="fas fa-chevron-right"></i></a><a class="btn btn-outline-light btn-sm" href="{{ route('manager.shifts.create',['month'=>$weekStart->format('Y-m'),'day'=>$weekStart->toDateString()]) }}">Schedule</a></div>
     </header>
     @if(session('success'))<div class="alert alert-success mt-3">{{ session('success') }}</div>@endif
     @if($errors->has('schedule_day'))<div class="alert alert-danger mt-3">{{ $errors->first('schedule_day') }}</div>@endif

@@ -223,7 +223,7 @@ class OdooManagerLeaveReportServiceTest extends TestCase
         $this->assertSame('Sick Leave', $report['rows'][0]['leave_type']);
         $this->assertSame('2.00 days', $report['rows'][0]['taken_label']);
         $this->assertSame('8.50 days', $report['rows'][0]['remaining_balance_label']);
-        $this->assertSame('01 Jun 2026 - 30 Jun 2026', $report['summary']['range_label']);
+        $this->assertSame('01-06-2026 - 30-06-2026', $report['summary']['range_label']);
         $this->assertSame('2.00 days', $report['summary']['day_based_total_label']);
         $this->assertSame(1, $report['summary']['row_count']);
         $this->assertSame(1, $report['summary']['balance_rows_count']);

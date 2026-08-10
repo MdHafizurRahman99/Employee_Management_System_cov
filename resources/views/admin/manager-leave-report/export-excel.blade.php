@@ -10,7 +10,7 @@
             <th colspan="7">Leave Report - {{ $reportSummary['range_label'] }}</th>
         </tr>
         <tr>
-            <td colspan="7">Generated: {{ $generatedAt->format('d M Y h:i A') }}</td>
+            <td colspan="7">Generated: {{ $generatedAt->format('d-m-Y h:i A') }}</td>
         </tr>
         <tr>
             <th>Employees</th>

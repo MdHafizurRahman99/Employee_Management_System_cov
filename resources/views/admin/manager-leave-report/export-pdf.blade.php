@@ -21,7 +21,7 @@
     <h1>Leave Report</h1>
     <p class="meta">
         Range: {{ $reportSummary['range_label'] }} |
-        Generated: {{ $generatedAt->format('d M Y h:i A') }}
+        Generated: {{ $generatedAt->format('d-m-Y h:i A') }}
     </p>
 
     <table class="summary">

@@ -217,7 +217,7 @@ class OdooManagerPlanningServiceTest extends TestCase
         $this->assertSame('8h', $pageData['weeklyRoster']['summary']['scheduled_hours']);
         $this->assertSame('Odoo Employee', $pageData['weeklyRoster']['rows'][0]['employee']);
         $this->assertSame(1, $pageData['weeklyRoster']['rows'][0]['shift_count']);
-        $this->assertSame('Wed, Jun 10 (1)', $pageData['weeklyRoster']['summary']['busiest_day']);
+        $this->assertSame('10-06-2026 (1)', $pageData['weeklyRoster']['summary']['busiest_day']);
         $this->assertSame('Front Desk', $pageData['weeklyRoster']['role_breakdown'][0]['name']);
         $this->assertSame('Front Desk', $pageData['weeklyRoster']['shift_templates'][0]['title']);
         $this->assertCount(14, $pageData['weeklyRoster']['days']);

@@ -167,11 +167,11 @@
                                         <div class="font-weight-bold text-primary mb-1">Shift Dates</div>
                                         <div class="small text-muted">
                                             @if ($leaveFormPrefill['start_date'] === $leaveFormPrefill['end_date'])
-                                                {{ \Carbon\Carbon::createFromFormat('Y-m-d', $leaveFormPrefill['start_date'])->format('D, d M Y') }}
+                                                {{ \Carbon\Carbon::createFromFormat('Y-m-d', $leaveFormPrefill['start_date'])->format('d-m-Y') }}
                                             @else
-                                                {{ \Carbon\Carbon::createFromFormat('Y-m-d', $leaveFormPrefill['start_date'])->format('D, d M Y') }}
+                                                {{ \Carbon\Carbon::createFromFormat('Y-m-d', $leaveFormPrefill['start_date'])->format('d-m-Y') }}
                                                 to
-                                                {{ \Carbon\Carbon::createFromFormat('Y-m-d', $leaveFormPrefill['end_date'])->format('D, d M Y') }}
+                                                {{ \Carbon\Carbon::createFromFormat('Y-m-d', $leaveFormPrefill['end_date'])->format('d-m-Y') }}
                                             @endif
                                         </div>
                                         <div class="small text-muted mt-1">

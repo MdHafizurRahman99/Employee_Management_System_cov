@@ -42,7 +42,7 @@ class ManagerShiftController extends Controller
             'recentShifts' => [],
             'shiftCalendar' => [],
             'selectedCalendarDate' => $selectedMonth->copy()->startOfMonth(),
-            'selectedCalendarDateLabel' => $selectedMonth->format('D, d M Y'),
+            'selectedCalendarDateLabel' => $selectedMonth->format('d-m-Y'),
             'selectedCalendarDateValue' => $selectedMonth->format('Y-m-d'),
             'selectedCalendarShifts' => [],
             'weeklyRoster' => $this->emptyWeeklyRoster($rangeAnchor, $scheduleRangeStart, $scheduleRangeEnd),
@@ -713,7 +713,7 @@ class ManagerShiftController extends Controller
         return [
             'week_start' => $weekStart,
             'week_end' => $weekEnd,
-            'week_label' => $weekStart->format('M j').' - '.$weekEnd->format($weekStart->isSameMonth($weekEnd) ? 'j, Y' : 'M j, Y'),
+            'week_label' => $weekStart->format('d-m-Y').' - '.$weekEnd->format('d-m-Y'),
             'previous_week_day' => $weekStart->copy()->subDays($weekStart->diffInDays($weekEnd) + 1),
             'next_week_day' => $weekStart->copy()->addDays($weekStart->diffInDays($weekEnd) + 1),
             'period_days' => $weekStart->diffInDays($weekEnd) + 1,
@@ -784,7 +784,7 @@ class ManagerShiftController extends Controller
         return [
             'week_start' => $weekStart,
             'week_end' => $weekEnd,
-            'week_label' => $weekStart->format('M j').' - '.$weekEnd->format($weekStart->isSameMonth($weekEnd) ? 'j, Y' : 'M j, Y'),
+            'week_label' => $weekStart->format('d-m-Y').' - '.$weekEnd->format('d-m-Y'),
             'previous_week_day' => $weekStart->copy()->subDays($weekStart->diffInDays($weekEnd) + 1),
             'next_week_day' => $weekStart->copy()->addDays($weekStart->diffInDays($weekEnd) + 1),
             'period_days' => $weekStart->diffInDays($weekEnd) + 1,

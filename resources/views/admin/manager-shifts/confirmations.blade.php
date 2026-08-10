@@ -46,7 +46,7 @@
     <div class="confirm-hero">
         <div class="confirm-eyebrow">Roster response desk</div>
         <h1 class="confirm-title">Shift Confirmations</h1>
-        <p class="mb-3">{{ $weekStart->format('M j') }}–{{ $weekEnd->format('M j, Y') }} · Review employee responses before the roster becomes tomorrow's problem.</p>
+        <p class="mb-3">{{ $weekStart->format('d-m-Y') }} – {{ $weekEnd->format('d-m-Y') }} · Review employee responses before the roster becomes tomorrow's problem.</p>
         <div class="confirm-actions">
             <a href="{{ route('manager.shifts.create', array_merge($confirmationScope,['month'=>$selectedMonth->format('Y-m'),'day'=>$selectedDay->toDateString()])) }}" class="btn btn-light btn-sm"><i class="fas fa-arrow-left mr-1"></i>Team Schedule</a>
             <a href="{{ route('manager.shifts.confirmations', ['month'=>$confirmationPreviousStart->format('Y-m'),'day'=>$confirmationPreviousStart->toDateString(),'start_date'=>$confirmationPreviousStart->toDateString(),'end_date'=>$confirmationPreviousEnd->toDateString()]) }}" class="btn btn-outline-light btn-sm">Previous range</a>

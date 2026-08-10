@@ -236,7 +236,7 @@ class OdooEmployeeScheduleEntryService
             'employee_id' => $employee['id'],
             'employee_name' => $employee['name'],
             'date_value' => (string) $record['entry_date'],
-            'date_label' => Carbon::parse((string) $record['entry_date'])->format('D, d M Y'),
+            'date_label' => Carbon::parse((string) $record['entry_date'])->format('d-m-Y'),
             'entry_type' => $type,
             'type_label' => $meta['label'],
             'type_class' => $meta['class'],

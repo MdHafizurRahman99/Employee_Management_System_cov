@@ -21,7 +21,7 @@
     <h1>Payroll Summary Report</h1>
     <p class="meta">
         Month: {{ $reportSummary['month_label'] }} |
-        Generated: {{ $generatedAt->format('d M Y h:i A') }}
+        Generated: {{ $generatedAt->format('d-m-Y h:i A') }}
     </p>
 
     <table class="summary">

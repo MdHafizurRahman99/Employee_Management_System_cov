@@ -206,7 +206,7 @@ class OdooManagerPayrollSummaryReportService
                 'deductions' => $totals['deductions'],
                 'net_pay' => $totals['net_pay'],
                 'period_label' => $periodStart && $periodEnd
-                    ? $periodStart->format('d M Y').' - '.$periodEnd->format('d M Y')
+                    ? $periodStart->format('d-m-Y').' - '.$periodEnd->format('d-m-Y')
                     : 'N/A',
             ];
         }, $records)));
