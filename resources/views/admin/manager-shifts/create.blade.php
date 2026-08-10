@@ -2575,9 +2575,10 @@
                                     <span class="create-shift-step-number">3</span>
                                     <div class="create-shift-step-field">
                                         <label for="employee_id">Employee</label>
-                                        <select name="employee_id" id="employee_id"
-                                            class="form-control @error('employee_id') is-invalid @enderror">
-                                            
+                                        <select id="employee_id"
+                                            class="form-control @error('employee_id') is-invalid @enderror"
+                                            disabled aria-disabled="true">
+                                            <option value="">Open shift (no employee)</option>
                                             @foreach ($employees as $employee)
                                                 <option value="{{ $employee['id'] }}"
                                                     data-company-id="{{ $employee['company_id'] ?? '' }}"
@@ -2590,7 +2591,7 @@
                                                 </option>
                                             @endforeach
                                         </select>
-                                        <input type="hidden" name="employee_id" id="employee_id_locked" value="">
+                                        <input type="hidden" name="employee_id" id="employee_id_locked" value="{{ old('employee_id', '') }}">
                                         @error('employee_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                                     </div>
                                 </div>
@@ -2618,28 +2619,10 @@
                                 @error('role_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                             </div>
 
-                            <div class="form-row">
-                                <div class="form-group col-md-6">
-                                    <label for="shift_date">Start Date</label>
-                                    <input type="date" id="shift_date_display"
-                                        class="form-control @error('shift_date') is-invalid @enderror"
-                                        value="{{ old('shift_date', $selectedCalendarDateValue) }}" disabled>
-                                    <input type="hidden" name="shift_date" id="shift_date" value="{{ old('shift_date', $selectedCalendarDateValue) }}">
-                                    @error('shift_date')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                </div>
-                                <div class="form-group col-md-6">
-                                    <label for="shift_end_date">End Date</label>
-                                    <input type="date" id="shift_end_date_display"
-                                        class="form-control @error('shift_end_date') is-invalid @enderror"
-                                        value="{{ old('shift_end_date', old('shift_date', $selectedCalendarDateValue)) }}" disabled>
-                                    <input type="hidden" name="shift_end_date" id="shift_end_date" value="{{ old('shift_end_date', old('shift_date', $selectedCalendarDateValue)) }}">
-                                    @error('shift_end_date')
-                                        <div class="invalid-feedback d-block">{{ $message }}</div>
-                                    @enderror
-                                </div>
-                            </div>
+                            {{-- The selected roster cell owns the shift date. Keep both values for Odoo
+                                datetime construction without duplicating read-only controls in the modal. --}}
+                            <input type="hidden" name="shift_date" id="shift_date" value="{{ old('shift_date', $selectedCalendarDateValue) }}">
+                            <input type="hidden" name="shift_end_date" id="shift_end_date" value="{{ old('shift_end_date', old('shift_date', $selectedCalendarDateValue)) }}">
 
                             <div class="form-row">
                                 <div class="form-group col-md-6">
@@ -2980,7 +2963,8 @@
                     }
                 }
 
-                if (employeeSelect) employeeSelect.disabled = !companyId;
+                // The employee comes from the roster cell and is never editable here.
+                if (employeeSelect) employeeSelect.disabled = true;
                 if (roleSelect) roleSelect.disabled = !companyId;
                 if (rolePlaceholder) rolePlaceholder.textContent = companyId ? 'Select acting role' : 'Select company first';
 
@@ -3028,6 +3012,39 @@
                 roleSelect.value = defaultRoleOption?.value || '';
             };
 
+            const resolveCreateCompanyId = (data, employeeOption) => {
+                const coveredCompanyIds = employeeOption?.dataset.allCompanies === '1'
+                    ? Array.from(companySelect?.options || []).map((option) => option.value).filter(Boolean)
+                    : companyIdsForOption(employeeOption);
+                const eligibleCompanyIds = coveredCompanyIds.filter((companyId) =>
+                    selectedCompanyIds.size === 0 || selectedCompanyIds.has(companyId)
+                );
+                const workLocationCompanyId = data.workLocationId
+                    ? Array.from(workLocationSelect?.options || [])
+                        .find((option) => option.value === String(data.workLocationId))?.dataset.companyId || ''
+                    : '';
+                const roleCompanyId = data.roleId
+                    ? Array.from(roleSelect?.options || [])
+                        .find((option) => option.value === String(data.roleId))?.dataset.companyId || ''
+                    : '';
+                const requestedCompanyIds = [
+                    data.companyId || '',
+                    workLocationCompanyId,
+                    roleCompanyId,
+                    companySelect?.value || '',
+                ];
+
+                if (employeeOption) {
+                    return requestedCompanyIds.find((companyId) => eligibleCompanyIds.includes(String(companyId)))
+                        || eligibleCompanyIds[0]
+                        || coveredCompanyIds[0]
+                        || '';
+                }
+
+                return requestedCompanyIds.find((companyId) => companyId
+                    && (selectedCompanyIds.size === 0 || selectedCompanyIds.has(String(companyId)))) || '';
+            };
+
             const prefillCreateShift = (data) => {
                 if (shiftDateInput && data.shiftDate) {
                     shiftDateInput.value = data.shiftDate;
@@ -3037,24 +3054,17 @@
                     shiftEndDateInput.value = data.shiftDate;
                 }
 
-                let companyId = data.companyId || '';
-                if (!companyId && data.employeeId && employeeSelect) {
-                    const employeeOption = Array.from(employeeSelect.options)
-                        .find((option) => option.value === String(data.employeeId));
-                    companyId = employeeOption?.dataset.companyId || '';
-                }
-                if (!companyId && data.roleId && roleSelect) {
-                    const roleOption = Array.from(roleSelect.options)
-                        .find((option) => option.value === String(data.roleId));
-                    companyId = roleOption?.dataset.companyId || '';
-                }
+                const employeeOption = data.employeeId && employeeSelect
+                    ? Array.from(employeeSelect.options).find((option) => option.value === String(data.employeeId))
+                    : null;
+                const companyId = resolveCreateCompanyId(data, employeeOption);
                 if (companySelect && companyId) companySelect.value = companyId;
                 syncCompanyDependencies();
 
                 if (employeeSelect && Object.prototype.hasOwnProperty.call(data, 'employeeId')) {
                     employeeSelect.value = data.employeeId || '';
                     if (employeeLockedInput) employeeLockedInput.value = data.employeeId || '';
-                    // Employee is selected from the roster table; lock it in the create form.
+                    // Employee is selected from the roster table; its hidden field submits the locked value.
                     employeeSelect.disabled = true;
                     autoSelectEmployeeWorkLocation();
                     autoSelectEmployeeRole();
