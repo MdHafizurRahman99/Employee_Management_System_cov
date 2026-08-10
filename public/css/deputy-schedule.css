@@ -149,13 +149,13 @@
     max-height: calc(100vh - 210px);
     border: 1px solid var(--deputy-line);
     border-top: 0;
-    overflow-x: hidden;
+    overflow-x: auto;
     overflow-y: auto;
 }
 .schedule-page .roster-grid,
 .schedule-page .area-grid {
     width: 100%;
-    min-width: 100%;
+    min-width: var(--schedule-grid-min-width, 100%);
     grid-template-columns: 210px repeat(var(--schedule-day-count, 14), minmax(0, 1fr));
 }
 .schedule-page .roster-corner,

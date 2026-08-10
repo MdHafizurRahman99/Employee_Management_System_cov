@@ -590,25 +590,6 @@
             white-space: nowrap;
         }
 
-        .roster-day-unavailable {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.18rem;
-            min-height: 1.05rem;
-            padding: 0 0.3rem;
-            border-radius: 999px;
-            background: #ede5ff;
-            color: #6b3ccf;
-            font-size: 0.62rem;
-            font-weight: 900;
-            line-height: 1;
-        }
-
-        .roster-day-unavailable i {
-            font-size: 0.56rem;
-        }
-
         .roster-person {
             min-height: 116px;
             padding: 0.9rem 1rem;
@@ -1199,7 +1180,6 @@
         $pendingLeaveCount = $rosterSummary['pending_leave'] ?? 0;
         $unavailablePeopleCount = $rosterSummary['unavailable_people'] ?? 0;
         $warningCount = count(array_filter($rosterAlerts, fn ($alert) => in_array($alert['type'] ?? '', ['warning', 'danger'], true)));
-        $timeOffDays = $weeklyRoster['time_off_days'] ?? [];
         $employeeDiary = $employeeDiary ?? ['entries' => [], 'by_employee_date' => [], 'by_date' => [], 'count' => 0];
         $employeeDiaryByCell = $employeeDiary['by_employee_date'] ?? [];
         $employeeDiaryByDate = $employeeDiary['by_date'] ?? [];
@@ -1229,6 +1209,19 @@
                 'name' => $companyName,
             ]];
         })->all();
+        $visibleRosterDayCapacity = 14;
+        $rosterGridScale = max(1, count($rosterDays) / $visibleRosterDayCapacity);
+        $areaGridScale = max(1, count($areaBoardDays) / $visibleRosterDayCapacity);
+        $rosterGridMinWidth = sprintf(
+            'calc(%.4F%% - %.2Fpx)',
+            $rosterGridScale * 100,
+            210 * ($rosterGridScale - 1)
+        );
+        $areaGridMinWidth = sprintf(
+            'calc(%.4F%% - %.2Fpx)',
+            $areaGridScale * 100,
+            210 * ($areaGridScale - 1)
+        );
         $defaultCompanyShiftStyle = '--company-shift-accent:#64748b;--company-shift-border:#cbd5e1;--company-shift-bg:#f1f5f9;--company-shift-text:#253247;border-color:#cbd5e1;border-left-color:#64748b;background:#f1f5f9;color:#253247;';
 
         foreach (collect($companies)->sortBy(fn ($company) => (int) ($company['id'] ?? 0))->values() as $companyIndex => $company) {
@@ -1619,17 +1612,13 @@
 
             @if ($selectedView === 'team')
                 <div class="roster-scroll">
-                    <div class="roster-grid" id="teamRosterGrid" style="--schedule-day-count: {{ count($rosterDays) }};--schedule-grid-min-width:{{ 248 + (count($rosterDays) * 158) }}px">
+                    <div class="roster-grid" id="teamRosterGrid" style="--schedule-day-count:{{ count($rosterDays) }};--schedule-grid-min-width:{{ $rosterGridMinWidth }}">
                         <div class="roster-corner">
                             <span>Team Member</span>
                             <span id="visibleTeamMemberCount">{{ count($rosterRows) }}</span>
                         </div>
 
                     @foreach ($rosterDays as $day)
-                        @php
-                            $dayTimeOff = $timeOffDays[$day['date_value']] ?? ['unavailable_count' => 0];
-                            $dayUnavailableCount = $dayTimeOff['unavailable_count'] ?? 0;
-                        @endphp
                         <a href="{{ route('manager.shifts.create', array_merge($viewQuery, ['month' => $day['date']->format('Y-m'), 'day' => $day['date_value']])) }}"
                             class="roster-day-head {{ $day['is_today'] ? 'is-today' : '' }} {{ $day['is_selected'] ? 'is-selected' : '' }}" data-schedule-date="{{ $day['date_value'] }}">
                             <div class="roster-day-top">
@@ -1641,14 +1630,6 @@
                             </div>
                             <div class="roster-day-counts small text-muted font-weight-bold mt-1">
                                 <span>{{ $day['shift_count'] }} shift{{ $day['shift_count'] === 1 ? '' : 's' }}</span>
-                                @if ($dayUnavailableCount > 0)
-                                    <span class="roster-day-unavailable"
-                                        title="{{ $dayUnavailableCount }} unavailable"
-                                        aria-label="{{ $dayUnavailableCount }} unavailable">
-                                        <i class="fas fa-user-clock"></i>
-                                        {{ $dayUnavailableCount }}
-                                    </span>
-                                @endif
                             </div>
                             @if(!empty($day['holiday_labels']) || !empty($day['has_day_note']) || !empty($day['blocked_labels']))
                                 <div class="day-signal-row">@if(!empty($day['holiday_labels']))<span class="day-signal is-holiday"><i class="fas fa-star"></i>{{ implode(', ',$day['holiday_labels']) }}</span>@endif @if(!empty($day['has_day_note']))<span class="day-signal" title="Day note"><i class="fas fa-sticky-note"></i></span>@endif @if(!empty($day['blocked_labels']))<span class="day-signal is-blocked" title="Blocked {{ implode(', ',$day['blocked_labels']) }}"><i class="fas fa-ban"></i></span>@endif</div>
@@ -1842,7 +1823,7 @@
                 </div>
             @else
                 <div class="roster-scroll">
-                    <div class="area-grid" id="areaBoardGrid" style="--schedule-day-count: {{ count($areaBoardDays) }};--schedule-grid-min-width:{{ 248 + (count($areaBoardDays) * 158) }}px">
+                    <div class="area-grid" id="areaBoardGrid" style="--schedule-day-count:{{ count($areaBoardDays) }};--schedule-grid-min-width:{{ $areaGridMinWidth }}">
                         <div class="area-corner">
                             <span>Area</span>
                             <span>{{ count($areaRows) }}</span>
@@ -2942,6 +2923,16 @@
                 const locationCount = filterCompanyOptions(workLocationSelect, companyId);
                 filterCompanyOptions(employeeSelect, companyId);
                 filterCompanyOptions(roleSelect, companyId, true);
+
+                // Changing to an uncovered company temporarily clears the disabled select.
+                // Restore the locked roster employee as soon as a covered company is chosen again.
+                const lockedEmployeeId = employeeLockedInput?.value || '';
+                const lockedEmployeeOption = lockedEmployeeId && employeeSelect
+                    ? Array.from(employeeSelect.options).find((option) => option.value === lockedEmployeeId)
+                    : null;
+                if (lockedEmployeeOption && !lockedEmployeeOption.disabled) {
+                    employeeSelect.value = lockedEmployeeId;
+                }
 
                 const locationPlaceholder = workLocationSelect?.querySelector('option[value=""]');
                 const rolePlaceholder = roleSelect?.querySelector('option[value=""]');
