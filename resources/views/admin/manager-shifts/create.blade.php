@@ -1183,6 +1183,18 @@
         $employeeDiary = $employeeDiary ?? ['entries' => [], 'by_employee_date' => [], 'by_date' => [], 'count' => 0];
         $employeeDiaryByCell = $employeeDiary['by_employee_date'] ?? [];
         $employeeDiaryByDate = $employeeDiary['by_date'] ?? [];
+        $employeeTimeOffByCell = [];
+        foreach ($rosterRows as $rosterRow) {
+            $employeeId = (int) ($rosterRow['employee_id'] ?? 0);
+            if ($employeeId <= 0 || ! empty($rosterRow['is_open'])) {
+                continue;
+            }
+            foreach (($rosterRow['cells'] ?? []) as $dateValue => $cell) {
+                if (! empty($cell['time_off'])) {
+                    $employeeTimeOffByCell[$employeeId][$dateValue] = array_values($cell['time_off']);
+                }
+            }
+        }
         $viewQuery = [
             'view' => $selectedView,
             'start_date' => $scheduleRangeStart->toDateString(),
@@ -2579,9 +2591,9 @@
                             </div>
 
                             <div id="createShiftDiaryContext" class="alert alert-warning d-none" role="status" aria-live="polite">
-                                <div class="font-weight-bold mb-1"><i class="fas fa-book-open mr-1" aria-hidden="true"></i>Employee Diary</div>
+                                <div class="font-weight-bold mb-1"><i class="fas fa-user-clock mr-1" aria-hidden="true"></i>Availability warning</div>
                                 <div id="createShiftDiaryContextBody" class="small"></div>
-                                <div class="small mt-2">This is a scheduling preference, not a hard block. Review it, then continue if coverage requires an override.</div>
+                                <div class="small mt-2">Review this employee's availability before saving. Approved leave or an overlapping shift may prevent creation.</div>
                             </div>
 
                             <div class="form-group">
@@ -2829,6 +2841,7 @@
             const createShiftDiaryContext = document.getElementById('createShiftDiaryContext');
             const createShiftDiaryContextBody = document.getElementById('createShiftDiaryContextBody');
             const employeeDiaryByCell = @json($employeeDiaryByCell);
+            const employeeTimeOffByCell = @json($employeeTimeOffByCell);
             const shiftClipboard = document.getElementById('shiftClipboard');
             const shiftClipboardLabel = document.getElementById('shiftClipboardLabel');
             const clearShiftClipboard = document.getElementById('clearShiftClipboard');
@@ -3645,17 +3658,28 @@
 
                 const employeeId = employeeSelect?.value || '';
                 const dateValue = shiftDateInput?.value || '';
-                const entries = employeeDiaryByCell?.[employeeId]?.[dateValue] || [];
+                const diaryEntries = employeeDiaryByCell?.[employeeId]?.[dateValue] || [];
+                const timeOffEntries = employeeTimeOffByCell?.[employeeId]?.[dateValue] || [];
 
                 createShiftDiaryContextBody.replaceChildren();
-                createShiftDiaryContext.classList.toggle('d-none', entries.length === 0);
-                if (entries.length === 0) return;
+                createShiftDiaryContext.classList.toggle('d-none', diaryEntries.length === 0 && timeOffEntries.length === 0);
+                if (diaryEntries.length === 0 && timeOffEntries.length === 0) return;
 
                 const shiftStart = startTimeInput?.value || '';
                 const shiftEnd = endTimeInput?.value || '';
                 let hasConflict = false;
 
-                entries.forEach((entry) => {
+                timeOffEntries.forEach((entry) => {
+                    const isBlocking = entry.kind === 'unavailable' || entry.kind === 'leave-approved';
+                    hasConflict = hasConflict || isBlocking;
+
+                    const line = document.createElement('div');
+                    line.className = isBlocking ? 'font-weight-bold text-danger' : 'font-weight-bold';
+                    line.textContent = `${entry.short_label || entry.label || 'Time Off'} · ${entry.time_label || 'All day'}${entry.status_label ? ` · ${entry.status_label}` : ''}`;
+                    createShiftDiaryContextBody.appendChild(line);
+                });
+
+                diaryEntries.forEach((entry) => {
                     const entryStart = entry.start_time_value || '';
                     const entryEnd = entry.end_time_value || '';
                     const conflicts = entry.entry_type === 'unavailable'
@@ -3690,7 +3714,10 @@
                 });
             }
 
-            if (companySelect) companySelect.addEventListener('change', syncCompanyDependencies);
+            if (companySelect) companySelect.addEventListener('change', function() {
+                syncCompanyDependencies();
+                updateDiaryContext();
+            });
             syncCompanyDependencies();
 
             if (shiftDateInput) {

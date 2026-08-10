@@ -2235,7 +2235,7 @@ class OdooManagerPlanningService
                     'label' => 'Unavailable',
                     'short_label' => 'Unavailable',
                     'time_label' => $timeLabel,
-                    'status_label' => $isFullDay ? 'Blocked all day' : 'Custom rule',
+                    'status_label' => $isFullDay ? 'Blocked all day' : 'Recurring unavailability',
                 ];
             }
         }
