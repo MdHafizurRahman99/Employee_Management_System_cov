@@ -120,8 +120,10 @@ class TeamCalendarControllerTest extends TestCase
         $this->assertSame('Today', $data['upcomingMoments'][0]['relative_date_label']);
         $this->assertSame('2026-06-25', $data['upcomingMoments'][3]['date']);
         $this->assertSame('All day', collect($data['eventsByDate']['2026-06-13'])->firstWhere('type', 'leave')['time']);
-        $this->assertSame('On leave · 2 days', collect($data['eventsByDate']['2026-06-12'])->firstWhere('type', 'leave')['calendar_subtitle']);
-        $this->assertSame('Continues', collect($data['eventsByDate']['2026-06-13'])->firstWhere('type', 'leave')['calendar_subtitle']);
+        $this->assertSame('Away · 12–13 Jun', collect($data['eventsByDate']['2026-06-12'])->firstWhere('type', 'leave')['calendar_subtitle']);
+        $this->assertSame('Away through 13 Jun', collect($data['eventsByDate']['2026-06-13'])->firstWhere('type', 'leave')['calendar_subtitle']);
+        $this->assertSame('Sam Lee', collect($data['eventsByDate']['2026-06-13'])->firstWhere('type', 'leave')['calendar_title']);
+        $this->assertSame('Birthday', collect($data['eventsByDate']['2026-06-15'])->firstWhere('type', 'birthday')['time']);
         $this->assertCount(1, $data['myUpcomingShifts']);
         $this->assertTrue($data['weeks'][0][0]['date']->isSunday());
         $this->assertSame(['pending' => 0, 'approved' => 0, 'other' => 0], $data['leaveRequestSummary']);

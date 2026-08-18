@@ -187,17 +187,17 @@ class TeamCalendarController extends Controller
             if ($timeLabel === '' || preg_match('/^24(?:[.:]00)?h?$/i', $timeLabel)) {
                 $timeLabel = 'All day';
             }
-            $sequence = $leaveSequenceMeta[$employeeId.'|'.$employee.'|'.$date] ?? ['index' => 0, 'days' => 1];
+            $sequence = $leaveSequenceMeta[$employeeId.'|'.$employee.'|'.$date] ?? ['index' => 0, 'days' => 1, 'range_label' => Carbon::parse($date)->format('d M'), 'end_label' => Carbon::parse($date)->format('d M')];
             $events[$date][] = [
                 'type' => 'leave', 'icon' => 'fa-plane-departure',
                 'date' => $date,
                 'employee_id' => $employeeId, 'employee' => $employee,
                 'company_id' => (int) ($employeeRecord['company_id'] ?? 0),
                 'company' => (string) ($employeeRecord['company'] ?? ''),
-                'calendar_title' => $sequence['index'] === 0 ? $employee : 'On leave',
+                'calendar_title' => $employee,
                 'calendar_subtitle' => $sequence['days'] > 1
-                    ? ($sequence['index'] === 0 ? 'On leave · '.$sequence['days'].' days' : 'Continues')
-                    : 'On leave · '.$timeLabel,
+                    ? ($sequence['index'] === 0 ? 'Away · '.$sequence['range_label'] : 'Away through '.$sequence['end_label'])
+                    : 'Away · '.$timeLabel,
                 'title' => $employee.' · On leave',
                 'time' => $timeLabel,
                 'detail' => 'Approved leave',
@@ -217,7 +217,7 @@ class TeamCalendarController extends Controller
                 'company_id' => (int) ($birthday['company_id'] ?? 0),
                 'company' => (string) ($birthday['company'] ?? ''),
                 'calendar_title' => $employee,
-                'title' => $employee.'\'s birthday', 'time' => 'All day',
+                'title' => $employee.'\'s birthday', 'time' => 'Birthday',
                 'start_time' => '', 'end_time' => '',
                 'detail' => 'Team celebration', 'is_mine' => $employeeId === $currentEmployeeId,
             ];
@@ -337,7 +337,7 @@ class TeamCalendarController extends Controller
     }
 
     /** @param array<int, array<string, mixed>> $leaveDays
-     *  @return array<string, array{index:int,days:int}>
+     *  @return array<string, array{index:int,days:int,range_label:string,end_label:string}>
      */
     private function buildLeaveSequenceMeta(array $leaveDays): array
     {
@@ -347,8 +347,20 @@ class TeamCalendarController extends Controller
             $sequence = [];
             $flush = function () use (&$sequence, &$meta, $employeeKey): void {
                 $count = count($sequence);
+                $start = Carbon::parse($sequence[0]['date_value']);
+                $end = Carbon::parse($sequence[array_key_last($sequence)]['date_value']);
+                $rangeLabel = $start->isSameDay($end)
+                    ? $start->format('d M')
+                    : ($start->isSameMonth($end)
+                        ? $start->format('d').'–'.$end->format('d M')
+                        : $start->format('d M').' – '.$end->format('d M'));
                 foreach ($sequence as $index => $leaveDay) {
-                    $meta[$employeeKey.'|'.$leaveDay['date_value']] = ['index' => $index, 'days' => $count];
+                    $meta[$employeeKey.'|'.$leaveDay['date_value']] = [
+                        'index' => $index,
+                        'days' => $count,
+                        'range_label' => $rangeLabel,
+                        'end_label' => $end->format('d M'),
+                    ];
                 }
                 $sequence = [];
             };

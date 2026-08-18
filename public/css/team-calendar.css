@@ -72,14 +72,15 @@
 .tc-weekdays { border-bottom: 1px solid var(--line); background: #fbfcfe; }
 .tc-weekdays span { padding: 8px; border-right: 1px solid var(--line); color: #4d5a71; font-size: .58rem; font-weight: 800; text-align: center; }
 .tc-weekdays span:last-child { border-right: 0; }
-.tc-day { position: relative; min-height: clamp(92px,calc((100vh - 246px)/6),116px); padding: 7px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: #fff; transition: background .15s, box-shadow .15s; }
+.tc-day { position: relative; min-height: clamp(102px,calc((100vh - 246px)/6),128px); padding: 7px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: #fff; transition: background .15s, box-shadow .15s; }
 .tc-week:last-child .tc-day { border-bottom: 0; }.tc-day:last-child { border-right: 0; }.tc-day.is-outside { background: #fafbfd; color: #b1bac8; }.tc-day.is-selected { background: #f5f9ff; }.tc-day[data-selectable="1"] { cursor: pointer; }.tc-day[data-selectable="1"]:hover { background: #f8fbff; }
 .tc-day.is-in-range { background: #edfaf2; }.tc-day.is-range-start, .tc-day.is-range-end { box-shadow: inset 0 0 0 2px var(--leave); }
 .tc-day-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
 .tc-day-number { display: grid; place-items: center; width: 23px; height: 23px; border-radius: 50%; color: #29364d; font-size: .63rem; font-weight: 800; }
 .tc-day.is-today .tc-day-number { background: var(--blue); color: #fff; box-shadow: 0 3px 8px rgba(9,103,223,.22); }.tc-day.is-outside .tc-day-number { color: #b6bfcc; }
 .tc-event-count { color: #9aa5b5; font-size: .52rem; font-weight: 800; }
-.tc-events { display: grid; gap: 3px; max-height: 80px; overflow: auto; scrollbar-width: thin; }
+.tc-events { display: grid; gap: 3px; max-height: 94px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.tc-events::-webkit-scrollbar { display: none; }
 .tc-event, .tc-time-event { display: grid; gap: 2px; width: 100%; overflow: hidden; padding: 5px 7px; border: 0; border-left: 3px solid currentColor; border-radius: 5px; background: #f0ecff; color: #5e43bd; font-size: .54rem; line-height: 1.22; text-align: left; }
 .tc-event strong, .tc-event small, .tc-time-event strong, .tc-time-event small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.tc-event strong, .tc-time-event strong { font-weight: 750; letter-spacing: -.005em; }.tc-event small, .tc-time-event small { color: inherit; font-size: .46rem; font-weight: 650; opacity: .72; }
 .tc-event:hover, .tc-time-event:hover { filter: saturate(1.12) brightness(.98); transform: translateY(-1px); }.tc-event[hidden] { display: none; }
