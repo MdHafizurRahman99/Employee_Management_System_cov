@@ -35,6 +35,7 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\TryTestController;
 use App\Http\Controllers\TeamCalendarController;
+use App\Http\Controllers\TeamCalendarEventController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -60,6 +61,9 @@ Route::get('/manager/dashboard', [ManagerDashboardController::class, 'show'])
     ->name('manager.dashboard');
 
 Route::middleware(['auth', 'can:access-manager-tools'])->group(function () {
+    Route::post('team-calendar/events', [TeamCalendarEventController::class, 'store'])->name('team-calendar.events.store');
+    Route::post('team-calendar/events/{calendarEvent}', [TeamCalendarEventController::class, 'update'])->whereNumber('calendarEvent')->name('team-calendar.events.update');
+    Route::post('team-calendar/events/{calendarEvent}/delete', [TeamCalendarEventController::class, 'destroy'])->whereNumber('calendarEvent')->name('team-calendar.events.destroy');
     Route::get('manager/attendance', [ManagerAttendanceController::class, 'index'])->name('manager.attendance.index');
     Route::post('manager/attendance/{attendance}/correct', [ManagerAttendanceController::class, 'correct'])->name('manager.attendance.correct');
     Route::get('manager/leave-approvals', [ManagerLeaveApprovalController::class, 'index'])->name('manager.leave-approvals.index');

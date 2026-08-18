@@ -8,349 +8,109 @@
 
 @section('content')
 @php($canRequestLeave = $hasLeaveIdentity && !$leaveError && count($leaveTypes) > 0)
-<main class="container-fluid pb-4 team-calendar-page">
-    <h1 class="sr-only">Team Calendar</h1>
-    <header class="tc-hero">
-        <div class="tc-hero-main">
-            <div class="tc-title-block">
-                <div class="tc-eyebrow"><i class="fas fa-users"></i> Shared team view</div>
-                <h1>Team Calendar</h1>
-                <p>One clear view of published shifts, approved leave and team moments—so everyone knows who is working and who is away.</p>
-            </div>
-            <section class="tc-stats" aria-label="Calendar summary">
-                <div class="tc-stat"><i class="fas fa-user-friends"></i><span><strong>{{ $summary['team_members'] }}</strong> Team members</span></div>
-                <div class="tc-stat"><i class="fas fa-briefcase"></i><span><strong>{{ $summary['shifts'] }}</strong> Shifts</span></div>
-                <div class="tc-stat"><i class="fas fa-plane-departure"></i><span><strong>{{ $summary['people_on_leave'] }}</strong> On leave</span></div>
-                <div class="tc-stat"><i class="fas fa-birthday-cake"></i><span><strong>{{ $summary['birthdays'] + $summary['team_events'] }}</strong> Moments</span></div>
-            </section>
-            <div class="tc-hero-action">
-                <span class="tc-period-label">Viewing {{ $selectedMonth->format('F Y') }}</span>
-                @if($canRequestLeave)
-                    <button type="button" class="btn tc-request-button" id="startLeaveRange"><i class="fas fa-calendar-plus"></i> Request leave</button>
-                @endif
-            </div>
+<main class="container-fluid team-calendar-page pb-4">
+    <header class="tc-page-heading">
+        <div><h1>Team Calendar</h1><p>View shifts, leave and events. Plan your time and stay updated.</p></div>
+        <div class="tc-heading-actions">
+            @if($canManageCalendar)<a href="{{ route('manager.leave-approvals.index') }}" class="tc-text-link"><i class="fas fa-user-check"></i> Leave approvals</a>@endif
+            @if($canRequestLeave)<button type="button" class="tc-primary-button" data-start-leave><i class="far fa-calendar-plus"></i> Request leave</button>@endif
         </div>
     </header>
 
-    @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
+    @if(session('success'))<div class="alert alert-success" data-calendar-success>{{ session('success') }}</div>@endif
+    @if(session('calendar_event_success'))<div class="alert alert-success" data-event-success>{{ session('calendar_event_success') }}</div>@endif
     @if($errors->has('leave_request'))<div class="alert alert-danger">{{ $errors->first('leave_request') }}</div>@endif
+    @if($errors->has('calendar_event'))<div class="alert alert-danger">{{ $errors->first('calendar_event') }}</div>@endif
     @if($calendarError)<div class="alert alert-warning">Team calendar data is temporarily unavailable: {{ $calendarError }}</div>@endif
     @if($leaveError)<div class="alert alert-warning">Leave requests are temporarily unavailable: {{ $leaveError }}</div>@endif
-    @if($hasLeaveIdentity && !$leaveError && !$leaveTypes)<div class="alert alert-info">No requestable leave types are currently available for your Odoo employee profile.</div>@endif
 
     <div class="tc-range-bar" id="leaveRangeBar" role="status" aria-live="polite">
-        <div><strong id="leaveRangeTitle">Choose your leave dates</strong><br><span id="leaveRangeCopy">Select a start date, then an end date.</span></div>
-        <div class="tc-range-actions"><button type="button" class="btn btn-light btn-sm" id="clearLeaveRange">Clear</button><button type="button" class="btn btn-success btn-sm" id="continueLeaveRequest" disabled>Review request</button></div>
+        <div><strong id="leaveRangeTitle">Choose your leave dates</strong><span id="leaveRangeCopy">Select a start date, then an end date.</span></div>
+        <div><button type="button" class="tc-plain-button" id="clearLeaveRange">Cancel</button><button type="button" class="tc-primary-button" id="continueLeaveRequest" disabled>Request leave</button></div>
     </div>
 
     <section class="tc-toolbar" aria-label="Calendar controls">
         <div class="tc-month-nav">
-            <a class="btn btn-light btn-sm font-weight-bold" href="{{ route('team-calendar.index',['month'=>now()->format('Y-m')]) }}">Today</a>
-            <a class="tc-icon-button" href="{{ route('team-calendar.index',['month'=>$previousMonth->format('Y-m')]) }}" aria-label="Previous month"><i class="fas fa-chevron-left" aria-hidden="true"></i></a>
-            <a class="tc-icon-button" href="{{ route('team-calendar.index',['month'=>$nextMonth->format('Y-m')]) }}" aria-label="Next month"><i class="fas fa-chevron-right" aria-hidden="true"></i></a>
-            <label class="tc-month-title">{{ $selectedMonth->format('F Y') }} <i class="fas fa-chevron-down" aria-hidden="true"></i><input type="month" id="calendarMonthJump" name="calendar_month_jump" value="{{ $selectedMonth->format('Y-m') }}" data-route="{{ route('team-calendar.index') }}" aria-label="Choose calendar month" autocomplete="off"></label>
+            <a class="tc-plain-button" href="{{ route('team-calendar.index',['month'=>now()->format('Y-m')]) }}">Today</a>
+            <a class="tc-square-button" href="{{ route('team-calendar.index',['month'=>$previousMonth->format('Y-m')]) }}" aria-label="Previous month"><i class="fas fa-chevron-left"></i></a>
+            <a class="tc-square-button" href="{{ route('team-calendar.index',['month'=>$nextMonth->format('Y-m')]) }}" aria-label="Next month"><i class="fas fa-chevron-right"></i></a>
+            <label class="tc-month-picker"><i class="far fa-calendar"></i> {{ $selectedMonth->format('F Y') }} <i class="fas fa-chevron-down"></i><input type="month" id="calendarMonthJump" value="{{ $selectedMonth->format('Y-m') }}" data-route="{{ route('team-calendar.index') }}" aria-label="Choose month"></label>
         </div>
         <div class="tc-view-switch" aria-label="Calendar view">
-            <button type="button" class="is-active" data-calendar-view="month" aria-pressed="true">Month</button>
-            <button type="button" data-calendar-view="week" aria-pressed="false">Week</button>
-            <button type="button" data-calendar-view="day" aria-pressed="false">Day</button>
+            <button type="button" class="is-active" data-calendar-view="month" aria-pressed="true">Month</button><button type="button" data-calendar-view="week" aria-pressed="false">Week</button><button type="button" data-calendar-view="day" aria-pressed="false">Day</button>
         </div>
         <div class="tc-toolbar-actions">
-            <button type="button" class="tc-filter-button" id="toggleCalendarFilters" aria-expanded="false" aria-controls="calendarFilters"><i class="fas fa-filter" aria-hidden="true"></i> Filter</button>
-            @if($canRequestLeave)<button type="button" class="tc-add-button" data-start-leave><i class="fas fa-plus" aria-hidden="true"></i> Request Leave</button>@endif
+            <button type="button" class="tc-plain-button" id="toggleCalendarFilters" aria-expanded="false"><i class="fas fa-filter"></i> Filter</button>
+            @if($canManageCalendar)<button type="button" class="tc-primary-button" id="addCalendarEvent"><i class="fas fa-plus"></i> Add event</button>@elseif($canRequestLeave)<button type="button" class="tc-primary-button" data-start-leave><i class="fas fa-plus"></i> Request leave</button>@endif
         </div>
         <div class="tc-filters" id="calendarFilters" hidden>
-            <div class="tc-search"><i class="fas fa-search" aria-hidden="true"></i><input class="tc-filter-control" id="teamCalendarSearch" name="calendar_search" type="search" placeholder="Find a colleague…" aria-label="Find a colleague" autocomplete="off"></div>
-            <select class="tc-filter-control" id="teamCalendarCompany" aria-label="Filter company"><option value="">All companies</option>@foreach($companies as $company)<option value="{{ $company['id'] }}">{{ $company['name'] }}</option>@endforeach</select>
-            <div class="tc-type-filters" aria-label="Event types">
-                <label class="tc-type-toggle is-shift"><input type="checkbox" value="shift" checked><i class="fas fa-briefcase"></i> Shifts</label>
-                <label class="tc-type-toggle is-leave"><input type="checkbox" value="leave" checked><i class="fas fa-plane-departure"></i> Leave</label>
-                <label class="tc-type-toggle is-birthday"><input type="checkbox" value="birthday" checked><i class="fas fa-birthday-cake"></i> Birthdays</label>
-                <label class="tc-type-toggle is-event"><input type="checkbox" value="event" checked><i class="fas fa-star"></i> Events</label>
-            </div>
+            <label class="tc-search"><i class="fas fa-search"></i><input id="teamCalendarSearch" type="search" placeholder="Find a colleague or event" aria-label="Search calendar"></label>
+            <select id="teamCalendarCompany" aria-label="Filter by company"><option value="">All companies</option>@foreach($companies as $company)<option value="{{ $company['id'] }}">{{ $company['name'] }}</option>@endforeach</select>
+            <div class="tc-type-filters"><label class="is-shift"><input type="checkbox" value="shift" checked><span></span> Shifts</label><label class="is-leave"><input type="checkbox" value="leave" checked><span></span> Leave</label><label class="is-birthday"><input type="checkbox" value="birthday" checked><span></span> Birthdays</label><label class="is-event"><input type="checkbox" value="event" checked><span></span> Events</label></div>
         </div>
     </section>
 
     <div class="tc-workspace">
-        <section>
-            <div class="tc-legend tc-legend-top"><span><i class="fas fa-circle my-shift"></i> My shift</span><span><i class="fas fa-circle team-shift"></i> Team shift</span><span><i class="fas fa-circle leave"></i> On leave</span><span><i class="fas fa-circle event"></i> Holiday / event</span><span><i class="fas fa-circle birthday"></i> Birthday</span></div>
-            <div class="tc-calendar-shell" id="teamCalendar">
-                <div class="tc-weekdays" aria-hidden="true">@foreach(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] as $weekday)<span>{{ $weekday }}</span>@endforeach</div>
-                @foreach($weeks as $week)
-                    <div class="tc-week" role="row">
-                        @foreach($week as $day)
-                            @php($selectable = $canRequestLeave && $day['date']->copy()->endOfDay()->gte(now()))
-                            <div class="tc-day {{ !$day['is_current_month']?'is-outside':'' }} {{ $day['is_today']?'is-today':'' }}"
-                                role="gridcell" tabindex="0" data-calendar-day data-date="{{ $day['date_value'] }}" data-selectable="{{ $selectable?'1':'0' }}" aria-label="{{ $day['date']->format('l, d F Y') }}" @if($day['is_today']) aria-current="date" @endif>
-                                <div class="tc-day-head"><span class="tc-day-number">{{ $day['date']->day }}</span><span class="tc-event-count" data-event-count>{{ count($day['events'])?:'' }}</span></div>
-                                <div class="tc-events">
-                                    @foreach($day['events'] as $event)
-                                        <button type="button" class="tc-event is-{{ $event['type'] }} {{ $event['is_mine']?'is-mine':'' }}"
-                                            data-event-type="{{ $event['type'] }}" data-employee="{{ strtolower($event['employee']) }}" data-company-id="{{ $event['company_id'] }}" title="{{ $event['title'] }} · {{ $event['time'] }}">
-                                            <span><i class="fas {{ $event['icon'] }}"></i>{{ $event['calendar_title'] ?? $event['title'] }}</span><small>{{ $event['time'] }}</small>
-                                        </button>
-                                    @endforeach
-                                </div>
-                            </div>
-                        @endforeach
+        <section class="tc-calendar-column">
+            <div class="tc-legend"><span class="is-mine"><i></i> My shift</span><span class="is-team"><i></i> Team shift</span><span class="is-leave"><i></i> On leave</span><span class="is-birthday"><i></i> Birthday</span><span class="is-event"><i></i> Event</span></div>
+            <div class="tc-calendar-shell" id="teamCalendar" role="grid" aria-label="Team calendar">
+                <div class="tc-weekdays">@foreach(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] as $weekday)<span>{{ $weekday }}</span>@endforeach</div>
+                @foreach($weeks as $week)<div class="tc-week" role="row">@foreach($week as $day)
+                    @php($selectable = $canRequestLeave && $day['date']->copy()->endOfDay()->gte(now()))
+                    <div class="tc-day {{ !$day['is_current_month']?'is-outside':'' }} {{ $day['is_today']?'is-today':'' }}" role="gridcell" tabindex="0" data-calendar-day data-date="{{ $day['date_value'] }}" data-selectable="{{ $selectable?'1':'0' }}" aria-label="{{ $day['date']->format('l, d F Y') }}">
+                        <div class="tc-day-head"><span class="tc-day-number">{{ $day['date']->day }}</span><span class="tc-event-count" data-event-count>{{ count($day['events'])?:'' }}</span></div>
+                        <div class="tc-events">@foreach($day['events'] as $event)<button type="button" class="tc-event is-{{ $event['type'] }} {{ $event['is_mine']?'is-mine':'' }}" data-event="{{ base64_encode(json_encode($event)) }}" title="{{ $event['title'] }} · {{ $event['time'] }}"><strong>{{ $event['calendar_title'] ?? $event['title'] }}</strong><small>{{ $event['time'] }}</small></button>@endforeach</div>
                     </div>
-                @endforeach
+                @endforeach</div>@endforeach
             </div>
-            <div class="tc-lower-grid">
-                <section class="tc-panel">
-                    <div class="tc-panel-head"><h3>Upcoming Leave</h3><span>{{ count($upcomingLeaveRequests) }}</span></div>
-                    <div class="tc-compact-list">
-                        @forelse($upcomingLeaveRequests as $request)
-                            <div class="tc-list-item"><i class="far fa-calendar-check is-leave"></i><div><strong>{{ $request['type'] }}</strong><span>{{ $request['start_date_label'] }} &rarr; {{ $request['end_date_label'] }} &middot; {{ $request['status_label'] }}</span></div></div>
-                        @empty
-                            <div class="tc-list-empty">You have no upcoming leave requests.</div>
-                        @endforelse
-                    </div>
-                </section>
-                <section class="tc-panel">
-                    <div class="tc-panel-head"><h3>Team on Leave</h3><span>{{ count($teamOnLeave) }} people</span></div>
-                    <div class="tc-compact-list">
-                        @forelse($teamOnLeave as $event)
-                            <div class="tc-list-item"><span class="tc-avatar">{{ strtoupper(substr($event['employee'], 0, 1)) }}</span><div><strong>{{ $event['employee'] }}</strong><span>{{ \Carbon\Carbon::parse($event['date'])->format('d M') }} &middot; Approved leave</span></div></div>
-                        @empty
-                            <div class="tc-list-empty">No approved leave in this month.</div>
-                        @endforelse
-                    </div>
-                </section>
-                <section class="tc-panel tc-request-panel">
-                    <div class="tc-panel-head"><h3>Request Leave</h3><span>Choose a range</span></div>
-                    @if($canRequestLeave)
-                        <div class="tc-inline-range"><input type="date" id="quickLeaveStart" name="quick_leave_start" min="{{ now()->toDateString() }}" aria-label="Leave start date" autocomplete="off"><span aria-hidden="true">&rarr;</span><input type="date" id="quickLeaveEnd" name="quick_leave_end" min="{{ now()->toDateString() }}" aria-label="Leave end date" autocomplete="off"></div>
-                        <button type="button" class="btn tc-panel-button" id="quickLeaveContinue"><i class="far fa-calendar-check" aria-hidden="true"></i> Review Leave Request</button>
-                    @else
-                        <span class="tc-unavailable">Leave request is currently unavailable</span>
-                    @endif
-                </section>
-            </div>
+            <div class="tc-timeline" id="calendarTimeline" hidden></div>
         </section>
 
         <aside class="tc-side-rail">
-            <section class="tc-rail-card tc-mini-calendar" aria-label="Mini calendar">
-                <div class="tc-rail-head"><div><span>Mini Calendar</span><strong>{{ $selectedMonth->format('F Y') }}</strong></div><div class="tc-mini-nav"><a href="{{ route('team-calendar.index',['month'=>$previousMonth->format('Y-m')]) }}" aria-label="Previous month"><i class="fas fa-chevron-left" aria-hidden="true"></i></a><a href="{{ route('team-calendar.index',['month'=>$nextMonth->format('Y-m')]) }}" aria-label="Next month"><i class="fas fa-chevron-right" aria-hidden="true"></i></a></div></div>
-                <div class="tc-mini-weekdays">@foreach(['S','M','T','W','T','F','S'] as $weekday)<span>{{ $weekday }}</span>@endforeach</div>
-                <div class="tc-mini-days">
-                    @foreach($weeks as $week)
-                        @foreach($week as $day)
-                            <button type="button" class="{{ !$day['is_current_month']?'is-outside':'' }} {{ $day['is_today']?'is-today':'' }}" data-mini-date="{{ $day['date_value'] }}" aria-label="{{ $day['date']->format('l, d F Y') }}" @if($day['is_today']) aria-current="date" @endif>{{ $day['date']->day }}</button>
-                        @endforeach
-                    @endforeach
-                </div>
-            </section>
-
-            <section class="tc-rail-card tc-summary-card">
-                <div class="tc-rail-title">My Leave Requests</div>
-                <div class="tc-summary-row"><span>Pending approval</span><strong>{{ $leaveRequestSummary['pending'] }}</strong><i style="--value: {{ min(100, $leaveRequestSummary['pending'] * 20) }}%; --bar: #f59e0b"></i></div>
-                <div class="tc-summary-row"><span>Approved</span><strong>{{ $leaveRequestSummary['approved'] }}</strong><i style="--value: {{ min(100, $leaveRequestSummary['approved'] * 12) }}%; --bar: #20ad6b"></i></div>
-                <div class="tc-summary-row"><span>Other</span><strong>{{ $leaveRequestSummary['other'] }}</strong><i style="--value: {{ min(100, $leaveRequestSummary['other'] * 12) }}%; --bar: #94a3b8"></i></div>
-            </section>
-
-            <section class="tc-rail-card">
-                <div class="tc-rail-title">Upcoming <small>Next 7 days</small></div>
-                <div class="tc-compact-list">
-                    @forelse($upcomingMoments as $event)
-                        <div class="tc-list-item"><i class="fas {{ $event['icon'] }} is-{{ $event['type'] }}"></i><div><strong>{{ $event['calendar_title'] ?? $event['title'] }}</strong><span>{{ \Carbon\Carbon::parse($event['date'])->format('D, d M') }} &middot; {{ $event['time'] }}</span></div></div>
-                    @empty
-                        <div class="tc-list-empty">Nothing scheduled in the next 7 days.</div>
-                    @endforelse
-                </div>
-            </section>
-
-            <section class="tc-rail-card">
-                <div class="tc-rail-title">My Upcoming Shifts</div>
-                <div class="tc-compact-list">
-                    @forelse($myUpcomingShifts as $event)
-                        <div class="tc-list-item"><i class="fas fa-briefcase is-shift"></i><div><strong>{{ $event['time'] ?: 'Scheduled shift' }}</strong><span>{{ \Carbon\Carbon::parse($event['date'])->format('D, d M') }} &middot; {{ $event['detail'] }}</span></div></div>
-                    @empty
-                        <div class="tc-list-empty">No upcoming published shifts.</div>
-                    @endforelse
-                </div>
-            </section>
+            <section class="tc-rail-card"><div class="tc-card-head"><h2>Who's on leave</h2><span>{{ count($teamOnLeave) }}</span></div><div class="tc-list">@forelse($teamOnLeave as $event)<article><span class="tc-avatar">{{ strtoupper(substr($event['employee'],0,1)) }}</span><div><strong>{{ $event['employee'] }}</strong><small>Approved leave · {{ \Carbon\Carbon::parse($event['date'])->format('d M') }}</small></div></article>@empty<div class="tc-empty">No approved leave this month.</div>@endforelse</div></section>
+            <section class="tc-rail-card"><div class="tc-card-head"><h2>My upcoming shifts</h2></div><div class="tc-list">@forelse($myUpcomingShifts as $event)<article><i class="fas fa-briefcase is-shift"></i><div><strong>{{ $event['calendar_title'] }}</strong><small>{{ \Carbon\Carbon::parse($event['date'])->format('D, d M') }} · {{ $event['time'] }}</small></div></article>@empty<div class="tc-empty">No upcoming published shifts.</div>@endforelse</div></section>
+            <section class="tc-rail-card"><div class="tc-card-head"><h2>Upcoming events</h2></div><div class="tc-list">@forelse($upcomingMoments as $event)<article><i class="fas {{ $event['icon'] }} is-{{ $event['type'] }}"></i><div><strong>{{ $event['calendar_title'] ?? $event['title'] }}</strong><small>{{ \Carbon\Carbon::parse($event['date'])->format('D, d M') }} · {{ $event['time'] }}</small></div></article>@empty<div class="tc-empty">Nothing scheduled in the next 7 days.</div>@endforelse</div></section>
+            @if($canRequestLeave)<button type="button" class="tc-leave-cta" data-start-leave><i class="far fa-calendar-check"></i> Request leave</button>@endif
         </aside>
     </div>
 </main>
 
-@if($canRequestLeave)
-<div class="modal fade tc-leave-modal" id="teamLeaveModal" tabindex="-1" role="dialog" aria-labelledby="teamLeaveTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" role="document"><div class="modal-content">
-        <div class="modal-header"><div><h5 class="modal-title" id="teamLeaveTitle">Request leave</h5><p>Your request will be sent to your manager for approval.</p></div><button type="button" class="close text-white" data-dismiss="modal" aria-label="Close leave request"><span aria-hidden="true">&times;</span></button></div>
-        <form method="POST" action="{{ route('employee.leave.store') }}">@csrf
-            <input type="hidden" name="return_to" value="team_calendar"><input type="hidden" name="calendar_month" value="{{ $selectedMonth->format('Y-m') }}">
-            <div class="modal-body">
-                <div class="tc-leave-summary"><i class="fas fa-calendar-check"></i><span id="leaveModalSummary">Choose a date range from the calendar.</span></div>
-                <div class="form-group"><label for="teamLeaveType">Leave type</label><select class="form-control @error('leave_type_id') is-invalid @enderror" name="leave_type_id" id="teamLeaveType" required><option value="">Select leave type</option>@foreach($leaveTypes as $type)<option value="{{ $type['id'] }}" {{ (string)old('leave_type_id')===(string)$type['id']?'selected':'' }}>{{ $type['name'] }}</option>@endforeach</select>@error('leave_type_id')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-                <div class="form-row"><div class="form-group col-6"><label for="teamLeaveStart">Start date</label><input class="form-control @error('start_date') is-invalid @enderror" type="date" name="start_date" id="teamLeaveStart" min="{{ now()->toDateString() }}" value="{{ old('start_date') }}" required>@error('start_date')<div class="invalid-feedback">{{ $message }}</div>@enderror</div><div class="form-group col-6"><label for="teamLeaveEnd">End date</label><input class="form-control @error('end_date') is-invalid @enderror" type="date" name="end_date" id="teamLeaveEnd" min="{{ now()->toDateString() }}" value="{{ old('end_date') }}" required>@error('end_date')<div class="invalid-feedback">{{ $message }}</div>@enderror</div></div>
-                <div class="form-group mb-0"><label for="teamLeaveReason">Note for your manager <span class="text-muted font-weight-normal">(optional)</span></label><textarea class="form-control" name="reason" id="teamLeaveReason" rows="3" maxlength="2000" placeholder="Add useful context…" autocomplete="off">{{ old('reason') }}</textarea></div>
-            </div>
-            <div class="modal-footer"><button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button><button type="submit" class="btn btn-success font-weight-bold"><i class="fas fa-paper-plane mr-1"></i>Send request</button></div>
-        </form>
-    </div></div>
-</div>
+<div class="modal fade tc-modal" id="calendarEventDetails" tabindex="-1" role="dialog" aria-hidden="true"><div class="modal-dialog modal-dialog-centered" role="document"><div class="modal-content"><div class="modal-header"><div><span class="tc-modal-kicker" id="eventDetailType">Calendar item</span><h5 class="modal-title" id="eventDetailTitle">Event details</h5></div><button type="button" class="close" data-dismiss="modal" aria-label="Close"><span>&times;</span></button></div><div class="modal-body"><dl class="tc-detail-list"><div><dt><i class="far fa-calendar"></i></dt><dd id="eventDetailDate"></dd></div><div><dt><i class="far fa-clock"></i></dt><dd id="eventDetailTime"></dd></div><div id="eventDetailCompanyRow"><dt><i class="far fa-building"></i></dt><dd id="eventDetailCompany"></dd></div><div id="eventDetailDescriptionRow"><dt><i class="far fa-sticky-note"></i></dt><dd id="eventDetailDescription"></dd></div></dl></div><div class="modal-footer"><form id="deleteEventForm" method="POST" class="mr-auto" hidden>@csrf<button class="btn btn-outline-danger" type="submit" onclick="return confirm('Delete this event?')">Delete</button></form><button type="button" class="btn btn-light" data-dismiss="modal">Close</button>@if($canManageCalendar)<button type="button" class="btn btn-primary" id="editCalendarEvent" hidden>Edit event</button>@endif</div></div></div></div>
+
+@if($canManageCalendar)
+<div class="modal fade tc-modal" id="calendarEventEditor" tabindex="-1" role="dialog" aria-hidden="true"><div class="modal-dialog modal-dialog-centered" role="document"><div class="modal-content"><div class="modal-header"><div><span class="tc-modal-kicker">Team calendar</span><h5 class="modal-title" id="eventEditorTitle">Add event</h5></div><button type="button" class="close" data-dismiss="modal"><span>&times;</span></button></div><form method="POST" id="calendarEventForm" action="{{ route('team-calendar.events.store') }}">@csrf<input type="hidden" name="calendar_month" value="{{ $selectedMonth->format('Y-m') }}"><input type="hidden" name="event_form" value="1"><input type="hidden" name="calendar_event_id" id="calendarEventId"><div class="modal-body"><div class="form-group"><label for="calendarEventTitle">Event title</label><input class="form-control" id="calendarEventTitle" name="title" maxlength="120" required placeholder="Team building"></div><div class="form-row"><div class="form-group col-sm-6"><label for="calendarEventDate">Date</label><input class="form-control" type="date" id="calendarEventDate" name="schedule_date" required></div><div class="form-group col-sm-6"><label for="calendarEventCompany">Company</label><select class="form-control" id="calendarEventCompany" name="company_id" required><option value="">Select company</option>@foreach($companies as $company)<option value="{{ $company['id'] }}">{{ $company['name'] }}</option>@endforeach</select></div></div><div class="form-row"><div class="form-group col-sm-6"><label for="calendarEventStart">Start time <span>(optional)</span></label><input class="form-control" type="time" id="calendarEventStart" name="start_time"></div><div class="form-group col-sm-6"><label for="calendarEventEnd">End time <span>(optional)</span></label><input class="form-control" type="time" id="calendarEventEnd" name="end_time"></div></div><div class="form-group mb-0"><label for="calendarEventDescription">Description <span>(optional)</span></label><textarea class="form-control" id="calendarEventDescription" name="description" rows="3" maxlength="2000" placeholder="Location, agenda or other useful context"></textarea></div></div><div class="modal-footer"><button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary" id="eventEditorSubmit">Add event</button></div></form></div></div></div>
 @endif
+
+@if($canRequestLeave)
+<div class="modal fade tc-modal" id="teamLeaveModal" tabindex="-1" role="dialog" aria-hidden="true"><div class="modal-dialog modal-dialog-centered" role="document"><div class="modal-content"><div class="modal-header"><div><span class="tc-modal-kicker">Time away</span><h5 class="modal-title">Request leave</h5></div><button type="button" class="close" data-dismiss="modal"><span>&times;</span></button></div><form method="POST" action="{{ route('employee.leave.store') }}">@csrf<input type="hidden" name="return_to" value="team_calendar"><input type="hidden" name="calendar_month" value="{{ $selectedMonth->format('Y-m') }}"><div class="modal-body"><div class="tc-leave-summary"><i class="far fa-calendar-check"></i><span id="leaveModalSummary"></span></div><div class="form-group"><label for="teamLeaveType">Leave type</label><select class="form-control" name="leave_type_id" id="teamLeaveType" required><option value="">Select leave type</option>@foreach($leaveTypes as $type)<option value="{{ $type['id'] }}" {{ (string)old('leave_type_id')===(string)$type['id']?'selected':'' }}>{{ $type['name'] }}</option>@endforeach</select></div><div class="form-row"><div class="form-group col-6"><label for="teamLeaveStart">From</label><input class="form-control" type="date" name="start_date" id="teamLeaveStart" min="{{ now()->toDateString() }}" value="{{ old('start_date') }}" required></div><div class="form-group col-6"><label for="teamLeaveEnd">To</label><input class="form-control" type="date" name="end_date" id="teamLeaveEnd" min="{{ now()->toDateString() }}" value="{{ old('end_date') }}" required></div></div><div class="form-group mb-0"><label for="teamLeaveReason">Reason <span>(optional)</span></label><textarea class="form-control" name="reason" id="teamLeaveReason" rows="3" maxlength="2000">{{ old('reason') }}</textarea></div></div><div class="modal-footer"><button type="button" class="btn btn-light" data-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane mr-1"></i> Submit request</button></div></form></div></div></div>
+@endif
+
+<div class="modal fade tc-modal" id="calendarSuccessModal" tabindex="-1" role="dialog" aria-hidden="true"><div class="modal-dialog modal-dialog-centered" role="document"><div class="modal-content tc-success-content"><div class="modal-body"><span class="tc-success-icon"><i class="fas fa-check"></i></span><h5 id="calendarSuccessTitle">Request submitted</h5><p id="calendarSuccessCopy"></p><button type="button" class="btn btn-primary" data-dismiss="modal">Close</button></div></div></div></div>
 @endsection
 
 @section('js')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const eventsByDate = @json($eventsByDate);
-    const dayCells = Array.from(document.querySelectorAll('[data-calendar-day]'));
-    const search = document.getElementById('teamCalendarSearch');
-    const company = document.getElementById('teamCalendarCompany');
-    const typeInputs = Array.from(document.querySelectorAll('.tc-type-toggle input'));
-    const agendaDate = document.getElementById('agendaDate');
-    const agendaBody = document.getElementById('agendaBody');
-    const rangeBar = document.getElementById('leaveRangeBar');
-    const rangeTitle = document.getElementById('leaveRangeTitle');
-    const rangeCopy = document.getElementById('leaveRangeCopy');
-    const continueButton = document.getElementById('continueLeaveRequest');
-    const startInput = document.getElementById('teamLeaveStart');
-    const endInput = document.getElementById('teamLeaveEnd');
-    const modalSummary = document.getElementById('leaveModalSummary');
-    const calendar = document.getElementById('teamCalendar');
-    const calendarWeeks = Array.from(document.querySelectorAll('.tc-week'));
-    const viewButtons = Array.from(document.querySelectorAll('[data-calendar-view]'));
-    const filtersPanel = document.getElementById('calendarFilters');
-    const filterButton = document.getElementById('toggleCalendarFilters');
-    let selectedDate = @json(now()->isSameMonth($selectedMonth) ? now()->toDateString() : $selectedMonth->toDateString());
-    let rangeStart = startInput?.value || '';
-    let rangeEnd = endInput?.value || '';
-    let rangeMode = false;
-    let calendarView = 'month';
-
-    const dateLabel = (value, options = {weekday:'long', day:'2-digit', month:'long'}) => new Intl.DateTimeFormat('en-GB', options).format(new Date(value + 'T12:00:00'));
-    const visibleEvents = (date) => (eventsByDate[date] || []).filter((event) => {
-        const query = (search?.value || '').trim().toLowerCase();
-        const companyId = company?.value || '';
-        const enabledTypes = new Set(typeInputs.filter((input) => input.checked).map((input) => input.value));
-        return enabledTypes.has(event.type) && (!query || (event.employee || '').toLowerCase().includes(query)) && (!companyId || String(event.company_id) === companyId);
-    });
-
-    const renderAgenda = (date) => {
-        selectedDate = date;
-        dayCells.forEach((cell) => cell.classList.toggle('is-selected', cell.dataset.date === date));
-        document.querySelectorAll('[data-mini-date]').forEach((button) => button.classList.toggle('is-selected', button.dataset.miniDate === date));
-        if (agendaDate) agendaDate.textContent = dateLabel(date);
-        if (!agendaBody) return;
-        const events = visibleEvents(date);
-        agendaBody.replaceChildren();
-        if (!events.length) {
-            const empty = document.createElement('div'); empty.className = 'tc-agenda-empty'; empty.innerHTML = '<i class="far fa-calendar-check"></i>No visible team events on this day.'; agendaBody.appendChild(empty); return;
-        }
-        events.forEach((event) => {
-            const item = document.createElement('article'); item.className = 'tc-agenda-item is-' + event.type;
-            const title = document.createElement('strong'); title.textContent = event.title;
-            const time = document.createElement('span'); time.textContent = event.time || 'All day';
-            const detail = document.createElement('small'); detail.textContent = [event.detail, event.company].filter(Boolean).join(' · ');
-            item.append(title, time, detail); agendaBody.appendChild(item);
-        });
-    };
-
-    const applyFilters = () => {
-        dayCells.forEach((cell) => {
-            const events = visibleEvents(cell.dataset.date);
-            const eventButtons = Array.from(cell.querySelectorAll('[data-event-type]'));
-            eventButtons.forEach((button) => {
-                const matches = events.some((event) => event.type === button.dataset.eventType && (event.employee || '').toLowerCase() === button.dataset.employee && String(event.company_id) === button.dataset.companyId);
-                button.hidden = !matches;
-            });
-            const count = cell.querySelector('[data-event-count]'); if (count) count.textContent = events.length || '';
-        });
-        renderAgenda(selectedDate);
-    };
-
-    const renderRange = () => {
-        const normalizedEnd = rangeEnd || rangeStart;
-        dayCells.forEach((cell) => {
-            const date = cell.dataset.date;
-            cell.classList.toggle('is-in-range', Boolean(rangeStart && normalizedEnd && date >= rangeStart && date <= normalizedEnd));
-            cell.classList.toggle('is-range-start', date === rangeStart);
-            cell.classList.toggle('is-range-end', date === normalizedEnd);
-        });
-        rangeBar?.classList.toggle('is-visible', rangeMode || Boolean(rangeStart));
-        if (!rangeStart) {
-            if (rangeTitle) rangeTitle.textContent = 'Choose your leave dates';
-            if (rangeCopy) rangeCopy.textContent = 'Select a start date, then an end date.';
-            if (continueButton) continueButton.disabled = true;
-            return;
-        }
-        if (rangeTitle) rangeTitle.textContent = rangeEnd ? 'Leave range selected' : 'Now choose the end date';
-        if (rangeCopy) rangeCopy.textContent = rangeEnd ? dateLabel(rangeStart,{day:'2-digit',month:'short',year:'numeric'}) + ' — ' + dateLabel(rangeEnd,{day:'2-digit',month:'short',year:'numeric'}) : 'Starts ' + dateLabel(rangeStart,{day:'2-digit',month:'short',year:'numeric'});
-        if (continueButton) continueButton.disabled = !rangeEnd;
-    };
-
-    const selectRangeDate = (date) => {
-        if (!rangeMode || !rangeStart || (rangeStart && rangeEnd)) { rangeMode = true; rangeStart = date; rangeEnd = ''; }
-        else { rangeEnd = date < rangeStart ? rangeStart : date; if (date < rangeStart) rangeStart = date; }
-        renderRange();
-    };
-    const openLeaveModal = () => {
-        if (!rangeStart) rangeStart = selectedDate;
-        if (!rangeEnd) rangeEnd = rangeStart;
-        if (startInput) startInput.value = rangeStart;
-        if (endInput) endInput.value = rangeEnd;
-        if (modalSummary) modalSummary.textContent = dateLabel(rangeStart,{day:'2-digit',month:'long',year:'numeric'}) + ' — ' + dateLabel(rangeEnd,{day:'2-digit',month:'long',year:'numeric'});
-        if (window.jQuery) window.jQuery('#teamLeaveModal').modal('show');
-    };
-    const beginLeaveRange = () => {
-        rangeMode = true; rangeStart = ''; rangeEnd = ''; renderRange();
-        document.querySelector('[data-selectable="1"]')?.focus();
-    };
-    const applyCalendarView = () => {
-        const selectedCell = dayCells.find((cell) => cell.dataset.date === selectedDate) || dayCells[0];
-        const selectedWeek = selectedCell?.closest('.tc-week');
-        calendar?.classList.toggle('is-week-view', calendarView === 'week');
-        calendar?.classList.toggle('is-day-view', calendarView === 'day');
-        calendarWeeks.forEach((week) => {
-            week.hidden = calendarView !== 'month' && week !== selectedWeek;
-            Array.from(week.querySelectorAll('[data-calendar-day]')).forEach((cell) => {
-                cell.hidden = calendarView === 'day' && cell !== selectedCell;
-            });
-        });
-        viewButtons.forEach((button) => {
-            const active = button.dataset.calendarView === calendarView;
-            button.classList.toggle('is-active', active);
-            button.setAttribute('aria-pressed', active ? 'true' : 'false');
-        });
-    };
-
-    dayCells.forEach((cell) => {
-        cell.addEventListener('click', (event) => { if (event.target.closest('.tc-event')) return; renderAgenda(cell.dataset.date); if (rangeMode && cell.dataset.selectable === '1') selectRangeDate(cell.dataset.date); });
-        cell.addEventListener('keydown', (event) => { if ((event.key === 'Enter' || event.key === ' ') && !event.target.closest('.tc-event')) { event.preventDefault(); cell.click(); } });
-        cell.querySelectorAll('.tc-event').forEach((button) => button.addEventListener('click', () => renderAgenda(cell.dataset.date)));
-    });
-    search?.addEventListener('input', applyFilters); company?.addEventListener('change', applyFilters); typeInputs.forEach((input) => input.addEventListener('change', applyFilters));
-    document.getElementById('startLeaveRange')?.addEventListener('click', beginLeaveRange);
-    document.querySelectorAll('[data-start-leave]').forEach((button) => button.addEventListener('click', beginLeaveRange));
-    filterButton?.addEventListener('click', () => {
-        const opening = filtersPanel?.hasAttribute('hidden');
-        filtersPanel?.toggleAttribute('hidden', !opening);
-        filterButton.setAttribute('aria-expanded', opening ? 'true' : 'false');
-    });
-    document.getElementById('calendarMonthJump')?.addEventListener('change', (event) => {
-        if (event.target.value) window.location.href = event.target.dataset.route + '?month=' + encodeURIComponent(event.target.value);
-    });
-    viewButtons.forEach((button) => button.addEventListener('click', () => { calendarView = button.dataset.calendarView; applyCalendarView(); }));
-    document.querySelectorAll('[data-mini-date]').forEach((button) => button.addEventListener('click', () => {
-        renderAgenda(button.dataset.miniDate);
-        applyCalendarView();
-        document.querySelector(`[data-calendar-day][data-date="${button.dataset.miniDate}"]`)?.scrollIntoView({behavior:'smooth', block:'center'});
-    }));
-    document.getElementById('quickLeaveContinue')?.addEventListener('click', () => {
-        const quickStart = document.getElementById('quickLeaveStart')?.value || '';
-        const quickEnd = document.getElementById('quickLeaveEnd')?.value || quickStart;
-        if (!quickStart) { beginLeaveRange(); return; }
-        rangeStart = quickStart; rangeEnd = quickEnd < quickStart ? quickStart : quickEnd; renderRange(); openLeaveModal();
-    });
-    document.getElementById('clearLeaveRange')?.addEventListener('click', () => { rangeStart = ''; rangeEnd = ''; rangeMode = false; renderRange(); });
-    continueButton?.addEventListener('click', openLeaveModal);
-    startInput?.addEventListener('change', () => { rangeStart = startInput.value; if (endInput && endInput.value < rangeStart) endInput.value = rangeStart; rangeEnd = endInput?.value || rangeStart; renderRange(); });
-    endInput?.addEventListener('change', () => { rangeEnd = endInput.value; renderRange(); });
-    renderAgenda(selectedDate); applyFilters(); renderRange(); applyCalendarView();
-    if (@json($errors->any() && old('return_to') === 'team_calendar') && window.jQuery) openLeaveModal();
+    const eventsByDate = @json($eventsByDate), canManage = @json($canManageCalendar);
+    const storeEventUrl = @json($canManageCalendar ? route('team-calendar.events.store') : ''), updateEventUrl = @json($canManageCalendar ? route('team-calendar.events.update', ['calendarEvent' => '__ID__']) : ''), deleteEventUrl = @json($canManageCalendar ? route('team-calendar.events.destroy', ['calendarEvent' => '__ID__']) : '');
+    const cells=[...document.querySelectorAll('[data-calendar-day]')], viewButtons=[...document.querySelectorAll('[data-calendar-view]')], search=document.getElementById('teamCalendarSearch'), company=document.getElementById('teamCalendarCompany'), typeInputs=[...document.querySelectorAll('.tc-type-filters input')], monthCalendar=document.getElementById('teamCalendar'), timeline=document.getElementById('calendarTimeline'), rangeBar=document.getElementById('leaveRangeBar'), startInput=document.getElementById('teamLeaveStart'), endInput=document.getElementById('teamLeaveEnd');
+    let selectedDate=@json(now()->isSameMonth($selectedMonth) ? now()->toDateString() : $selectedMonth->toDateString()), view=sessionStorage.getItem('teamCalendarView')||'month', rangeMode=false, rangeStart=startInput?.value||'', rangeEnd=endInput?.value||'', activeEvent=null;
+    const parseDate=v=>new Date(v+'T12:00:00'), dateLabel=(v,o={weekday:'long',day:'numeric',month:'long',year:'numeric'})=>new Intl.DateTimeFormat('en-GB',o).format(parseDate(v)), escapeHtml=v=>String(v||'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])), decodeEvent=v=>JSON.parse(decodeURIComponent(escape(atob(v))));
+    const filterState=()=>({q:(search?.value||'').trim().toLowerCase(),company:company?.value||'',types:new Set(typeInputs.filter(i=>i.checked).map(i=>i.value))});
+    const visibleEvents=date=>{const f=filterState();return(eventsByDate[date]||[]).filter(e=>f.types.has(e.type)&&(!f.company||String(e.company_id)===f.company)&&(!f.q||[e.title,e.employee,e.company,e.detail].join(' ').toLowerCase().includes(f.q)));};
+    function selectDate(date){selectedDate=date;cells.forEach(c=>c.classList.toggle('is-selected',c.dataset.date===date));if(view!=='month')renderTimeline();}
+    function applyFilters(){cells.forEach(cell=>{const visible=visibleEvents(cell.dataset.date);[...cell.querySelectorAll('.tc-event')].forEach(button=>{const event=decodeEvent(button.dataset.event);button.hidden=!visible.some(item=>item.type===event.type&&item.title===event.title&&item.time===event.time);});const count=cell.querySelector('[data-event-count]');if(count)count.textContent=visible.length||'';});if(view!=='month')renderTimeline();}
+    function rangeRender(){const end=rangeEnd||rangeStart;cells.forEach(c=>{const d=c.dataset.date;c.classList.toggle('is-in-range',!!rangeStart&&d>=rangeStart&&d<=end);c.classList.toggle('is-range-start',d===rangeStart);c.classList.toggle('is-range-end',d===end);});rangeBar.classList.toggle('is-visible',rangeMode||!!rangeStart);document.getElementById('leaveRangeTitle').textContent=!rangeStart?'Choose your leave dates':rangeEnd?'Leave range selected':'Now choose the end date';document.getElementById('leaveRangeCopy').textContent=!rangeStart?'Select a start date, then an end date.':rangeEnd?dateLabel(rangeStart,{day:'numeric',month:'short',year:'numeric'})+' – '+dateLabel(rangeEnd,{day:'numeric',month:'short',year:'numeric'}):'Starts '+dateLabel(rangeStart,{day:'numeric',month:'short',year:'numeric'});document.getElementById('continueLeaveRequest').disabled=!rangeStart;}
+    function beginRange(){rangeMode=true;rangeStart='';rangeEnd='';rangeRender();document.querySelector('[data-selectable="1"]')?.focus();} function chooseRange(date){if(!rangeStart||rangeEnd){rangeStart=date;rangeEnd='';}else if(date<rangeStart){rangeEnd=rangeStart;rangeStart=date;}else rangeEnd=date;rangeRender();} function openLeave(){if(!rangeStart)rangeStart=selectedDate;if(!rangeEnd)rangeEnd=rangeStart;startInput.value=rangeStart;endInput.value=rangeEnd;document.getElementById('leaveModalSummary').textContent=dateLabel(rangeStart)+' – '+dateLabel(rangeEnd);$('#teamLeaveModal').modal('show');}
+    function weekDates(){const date=parseDate(selectedDate),start=new Date(date);start.setDate(date.getDate()-date.getDay());return Array.from({length:view==='week'?7:1},(_,i)=>{const d=new Date(view==='week'?start:date);d.setDate(d.getDate()+i);return d.toISOString().slice(0,10);});}
+    function eventMinutes(event){const match=(event.start_time||event.time||'').match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);if(!match)return null;let h=+match[1],m=+match[2];if(match[3]?.toUpperCase()==='PM'&&h<12)h+=12;if(match[3]?.toUpperCase()==='AM'&&h===12)h=0;return h*60+m;}
+    function renderTimeline(){const dates=weekDates(),startHour=7,endHour=20,rowHeight=54;let html='<div class="tc-time-head"><span></span>'+dates.map(d=>'<button type="button" data-timeline-date="'+d+'"><small>'+dateLabel(d,{weekday:'short'})+'</small><strong>'+dateLabel(d,{day:'numeric',month:'short'})+'</strong></button>').join('')+'</div><div class="tc-time-body" style="--days:'+dates.length+'">';for(let hour=startHour;hour<=endHour;hour++)html+='<span class="tc-time-label" style="grid-row:'+(hour-startHour+1)+'">'+(hour>12?hour-12:hour)+':00 '+(hour>=12?'PM':'AM')+'</span>';dates.forEach((date,col)=>{html+='<div class="tc-time-column" style="grid-column:'+(col+2)+'"></div>';visibleEvents(date).forEach(event=>{const mins=eventMinutes(event),allDay=mins===null,top=allDay?4:((mins-startHour*60)/60)*rowHeight+4,duration=event.end_time?Math.max(38,((eventMinutes({start_time:event.end_time})-mins)/60)*rowHeight-6):42;html+='<button class="tc-time-event is-'+event.type+(event.is_mine?' is-mine':'')+(allDay?' is-all-day':'')+'" style="grid-column:'+(col+2)+';top:'+Math.max(4,top)+'px;height:'+duration+'px" data-timeline-event="'+escapeHtml(JSON.stringify(event))+'"><strong>'+escapeHtml(event.calendar_title||event.title)+'</strong><small>'+escapeHtml(event.time||'All day')+'</small></button>';});});timeline.innerHTML=html+'</div>';timeline.querySelectorAll('[data-timeline-event]').forEach(b=>b.onclick=()=>openDetails(JSON.parse(b.dataset.timelineEvent)));timeline.querySelectorAll('[data-timeline-date]').forEach(b=>b.onclick=()=>{selectedDate=b.dataset.timelineDate;if(view==='week')setView('day');});}
+    function setView(next){view=['month','week','day'].includes(next)?next:'month';sessionStorage.setItem('teamCalendarView',view);monthCalendar.hidden=view!=='month';timeline.hidden=view==='month';viewButtons.forEach(b=>{const active=b.dataset.calendarView===view;b.classList.toggle('is-active',active);b.setAttribute('aria-pressed',active?'true':'false');});if(view!=='month')renderTimeline();}
+    function openDetails(event){activeEvent=event;document.getElementById('eventDetailType').textContent=event.type==='shift'?(event.is_mine?'My shift':'Team shift'):event.type;document.getElementById('eventDetailTitle').textContent=event.title;document.getElementById('eventDetailDate').textContent=dateLabel(event.date);document.getElementById('eventDetailTime').textContent=event.time||'All day';document.getElementById('eventDetailCompany').textContent=event.company||'';document.getElementById('eventDetailCompanyRow').hidden=!event.company;document.getElementById('eventDetailDescription').textContent=event.detail||'';document.getElementById('eventDetailDescriptionRow').hidden=!event.detail;const editable=canManage&&event.type==='event'&&event.id,edit=document.getElementById('editCalendarEvent'),del=document.getElementById('deleteEventForm');if(edit)edit.hidden=!editable;if(del){del.hidden=!editable;del.action=editable?deleteEventUrl.replace('__ID__',event.id):'';}$('#calendarEventDetails').modal('show');}
+    function openEditor(event=null){const form=document.getElementById('calendarEventForm');form.reset();form.action=event?.id?updateEventUrl.replace('__ID__',event.id):storeEventUrl;document.getElementById('calendarEventId').value=event?.id||'';document.getElementById('eventEditorTitle').textContent=event?.id?'Edit event':'Add event';document.getElementById('eventEditorSubmit').textContent=event?.id?'Save changes':'Add event';document.getElementById('calendarEventTitle').value=event?.title||'';document.getElementById('calendarEventDate').value=event?.date||selectedDate;document.getElementById('calendarEventCompany').value=event?.company_id||'';document.getElementById('calendarEventStart').value=event?.start_time||'';document.getElementById('calendarEventEnd').value=event?.end_time||'';document.getElementById('calendarEventDescription').value=event?.detail==='Team event'?'':event?.detail||'';$('#calendarEventDetails').modal('hide');$('#calendarEventEditor').modal('show');}
+    cells.forEach(cell=>{cell.addEventListener('click',e=>{if(e.target.closest('.tc-event'))return;selectDate(cell.dataset.date);if(rangeMode&&cell.dataset.selectable==='1')chooseRange(cell.dataset.date);});cell.addEventListener('keydown',e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();cell.click();}});cell.querySelectorAll('.tc-event').forEach(button=>button.onclick=()=>openDetails(decodeEvent(button.dataset.event)));});viewButtons.forEach(b=>b.onclick=()=>setView(b.dataset.calendarView));search?.addEventListener('input',applyFilters);company?.addEventListener('change',applyFilters);typeInputs.forEach(i=>i.addEventListener('change',applyFilters));
+    document.getElementById('toggleCalendarFilters').onclick=function(){const panel=document.getElementById('calendarFilters'),opening=panel.hidden;panel.hidden=!opening;this.setAttribute('aria-expanded',opening?'true':'false');};document.getElementById('calendarMonthJump').onchange=e=>{if(e.target.value)location.href=e.target.dataset.route+'?month='+encodeURIComponent(e.target.value);};document.querySelectorAll('[data-start-leave]').forEach(b=>b.onclick=beginRange);document.getElementById('clearLeaveRange').onclick=()=>{rangeMode=false;rangeStart='';rangeEnd='';rangeRender();};document.getElementById('continueLeaveRequest')?.addEventListener('click',openLeave);startInput?.addEventListener('change',()=>{rangeStart=startInput.value;if(endInput.value<rangeStart)endInput.value=rangeStart;rangeEnd=endInput.value||rangeStart;rangeRender();});endInput?.addEventListener('change',()=>{rangeEnd=endInput.value;rangeRender();});document.getElementById('addCalendarEvent')?.addEventListener('click',()=>openEditor());document.getElementById('editCalendarEvent')?.addEventListener('click',()=>openEditor(activeEvent));
+    selectDate(selectedDate);applyFilters();rangeRender();setView(view);@if($errors->any() && old('return_to') === 'team_calendar') openLeave(); @endif @if(old('event_form') === '1') openEditor({id:@json(old('calendar_event_id')),title:@json(old('title')),date:@json(old('schedule_date')),company_id:@json(old('company_id')),start_time:@json(old('start_time')),end_time:@json(old('end_time')),detail:@json(old('description'))}); @endif const success=document.querySelector('[data-calendar-success],[data-event-success]');if(success){document.getElementById('calendarSuccessTitle').textContent=success.hasAttribute('data-calendar-success')?'Leave request submitted':'Calendar updated';document.getElementById('calendarSuccessCopy').textContent=success.textContent.trim();success.hidden=true;$('#calendarSuccessModal').modal('show');}
 });
 </script>
 @endsection

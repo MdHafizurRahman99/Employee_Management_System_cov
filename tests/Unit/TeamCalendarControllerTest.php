@@ -79,5 +79,6 @@ class TeamCalendarControllerTest extends TestCase
         $this->assertSame('Sam Lee · On leave', collect($data['eventsByDate']['2026-06-12'])->firstWhere('type', 'leave')['title']);
         $this->assertStringNotContainsString('Private Leave Type', json_encode($data['eventsByDate']));
         $this->assertCount(1, $data['leaveTypes']);
+        $this->assertFalse($data['canManageCalendar']);
     }
 }

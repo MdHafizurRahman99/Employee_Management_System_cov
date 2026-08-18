@@ -117,6 +117,7 @@ class TeamCalendarController extends Controller
             'myUpcomingShifts' => $myUpcomingShifts,
             'upcomingLeaveRequests' => $upcomingLeaveRequests,
             'leaveRequestSummary' => $leaveRequestSummary,
+            'canManageCalendar' => (bool) $request->user()?->can('access-manager-tools'),
             'summary' => [
                 'shifts' => $allEvents->where('type', 'shift')->count(),
                 'people_on_leave' => $allEvents->where('type', 'leave')->pluck('employee_id')->unique()->count(),
@@ -149,6 +150,8 @@ class TeamCalendarController extends Controller
                     : (string) ($shift['employee'] ?? 'Team shift'),
                 'title' => (string) ($shift['employee'] ?? 'Employee').' · '.(string) ($shift['role'] ?? 'Shift'),
                 'time' => (string) ($shift['time_label'] ?? ''),
+                'start_time' => (string) ($shift['start_time_value'] ?? ''),
+                'end_time' => (string) ($shift['end_time_value'] ?? ''),
                 'detail' => (string) ($shift['work_location'] ?? 'No work location'),
                 'is_mine' => (int) ($shift['employee_id'] ?? 0) === $currentEmployeeId,
             ];
@@ -187,6 +190,7 @@ class TeamCalendarController extends Controller
                 'company' => (string) ($birthday['company'] ?? ''),
                 'calendar_title' => $employee,
                 'title' => $employee.'\'s birthday', 'time' => 'All day',
+                'start_time' => '', 'end_time' => '',
                 'detail' => 'Team celebration', 'is_mine' => $employeeId === $currentEmployeeId,
             ];
         }
@@ -199,11 +203,19 @@ class TeamCalendarController extends Controller
             $companyId = (int) ($teamEvent->company_id ?? 0);
             $companyName = (string) (collect($data['employees'] ?? [])->firstWhere('company_id', $companyId)['company'] ?? 'Company event');
             $events[$date][] = [
+                'id' => (int) ($teamEvent->id ?? 0),
                 'type' => 'event', 'icon' => 'fa-star', 'employee_id' => 0, 'employee' => '',
                 'date' => $date,
                 'company_id' => $companyId, 'company' => $companyName,
                 'calendar_title' => $label,
-                'title' => $label, 'time' => 'All day', 'detail' => 'Team event', 'is_mine' => false,
+                'title' => $label,
+                'time' => filled($teamEvent->blocked_start ?? null) && filled($teamEvent->blocked_end ?? null)
+                    ? $teamEvent->blocked_start.' - '.$teamEvent->blocked_end
+                    : 'All day',
+                'start_time' => (string) ($teamEvent->blocked_start ?? ''),
+                'end_time' => (string) ($teamEvent->blocked_end ?? ''),
+                'detail' => (string) ($teamEvent->note ?? 'Team event'),
+                'is_mine' => false,
             ];
         }
 
