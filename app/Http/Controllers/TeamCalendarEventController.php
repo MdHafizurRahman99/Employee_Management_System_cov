@@ -14,7 +14,7 @@ class TeamCalendarEventController extends Controller
         $validated = $this->validated($request);
 
         try {
-            $repository->upsertDay($this->repositoryPayload($validated));
+            $repository->createTeamCalendarEvent($this->repositoryPayload($validated));
         } catch (OdooException $exception) {
             return back()->withErrors(['calendar_event' => $exception->getMessage()])->withInput();
         }
@@ -28,7 +28,11 @@ class TeamCalendarEventController extends Controller
         $validated = $this->validated($request);
 
         try {
-            $repository->updateDay($calendarEvent, $this->repositoryPayload($validated));
+            if (($validated['event_source'] ?? 'calendar_event') === 'day_meta') {
+                $repository->updateDay($calendarEvent, $this->repositoryPayload($validated));
+            } else {
+                $repository->updateTeamCalendarEvent($calendarEvent, $this->repositoryPayload($validated));
+            }
         } catch (OdooException $exception) {
             return back()->withErrors(['calendar_event' => $exception->getMessage()])->withInput();
         }
@@ -39,10 +43,17 @@ class TeamCalendarEventController extends Controller
 
     public function destroy(Request $request, OdooScheduleRepository $repository, int $calendarEvent): RedirectResponse
     {
-        $validated = $request->validate(['calendar_month' => ['nullable', 'date_format:Y-m']]);
+        $validated = $request->validate([
+            'calendar_month' => ['nullable', 'date_format:Y-m'],
+            'event_source' => ['nullable', 'in:calendar_event,day_meta'],
+        ]);
 
         try {
-            $repository->deleteDay($calendarEvent);
+            if (($validated['event_source'] ?? 'calendar_event') === 'day_meta') {
+                $repository->deleteDay($calendarEvent);
+            } else {
+                $repository->deleteTeamCalendarEvent($calendarEvent);
+            }
         } catch (OdooException $exception) {
             return back()->withErrors(['calendar_event' => $exception->getMessage()]);
         }
@@ -62,6 +73,7 @@ class TeamCalendarEventController extends Controller
             'end_time' => ['nullable', 'date_format:H:i', 'required_with:start_time', 'after:start_time'],
             'description' => ['nullable', 'string', 'max:2000'],
             'calendar_month' => ['nullable', 'date_format:Y-m'],
+            'event_source' => ['nullable', 'in:calendar_event,day_meta'],
         ]);
     }
 

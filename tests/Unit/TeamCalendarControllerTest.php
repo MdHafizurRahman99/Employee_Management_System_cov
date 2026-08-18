@@ -71,6 +71,24 @@ class TeamCalendarControllerTest extends TestCase
                     'blocked_start' => '09:00',
                     'blocked_end' => '10:00',
                 ]),
+                new OdooScheduleRecord([
+                    'id' => 42,
+                    'company_id' => 2,
+                    'schedule_date' => Carbon::parse('2026-06-10'),
+                    'holiday_name' => 'Department review',
+                    'note' => 'Conference room',
+                    'blocked_start' => '11:00',
+                    'blocked_end' => '12:00',
+                ]),
+                new OdooScheduleRecord([
+                    'id' => 43,
+                    'company_id' => 2,
+                    'schedule_date' => Carbon::parse('2026-06-25'),
+                    'holiday_name' => 'Quarterly social',
+                    'note' => 'Rooftop',
+                    'blocked_start' => '16:00',
+                    'blocked_end' => '17:00',
+                ]),
             ]));
         });
         $user = new User(['name' => 'Alex Morgan', 'odoo_employee_id' => 35]);
@@ -93,11 +111,13 @@ class TeamCalendarControllerTest extends TestCase
         $this->assertSame(1, $data['summary']['people_on_leave']);
         $this->assertSame('2026-06-12', collect($data['eventsByDate']['2026-06-12'])->firstWhere('type', 'shift')['date']);
         $this->assertCount(2, $data['teamOnLeave']);
-        $this->assertCount(2, $data['upcomingMoments']);
+        $this->assertCount(4, $data['upcomingMoments']);
+        $this->assertCount(2, collect($data['eventsByDate']['2026-06-10'])->where('type', 'event'));
         $this->assertSame('12–13 Jun', $data['teamOnLeave'][0]['date_range_label']);
         $this->assertSame('02–03 Jul', $data['teamOnLeave'][1]['date_range_label']);
         $this->assertSame('Happening now', $data['upcomingMoments'][0]['timing_label']);
         $this->assertSame('Today', $data['upcomingMoments'][0]['relative_date_label']);
+        $this->assertSame('2026-06-25', $data['upcomingMoments'][3]['date']);
         $this->assertSame('All day', collect($data['eventsByDate']['2026-06-13'])->firstWhere('type', 'leave')['time']);
         $this->assertSame('On leave · 2 days', collect($data['eventsByDate']['2026-06-12'])->firstWhere('type', 'leave')['calendar_subtitle']);
         $this->assertSame('Continues', collect($data['eventsByDate']['2026-06-13'])->firstWhere('type', 'leave')['calendar_subtitle']);

@@ -13,7 +13,7 @@ class TeamCalendarEventControllerTest extends TestCase
     public function test_it_stores_a_timed_team_event_and_returns_to_its_month(): void
     {
         $repository = $this->mock(OdooScheduleRepository::class, function (MockInterface $mock): void {
-            $mock->shouldReceive('upsertDay')->once()->with([
+            $mock->shouldReceive('createDay')->once()->with([
                 'company_id' => 8,
                 'schedule_area_id' => null,
                 'schedule_date' => '2026-09-14',

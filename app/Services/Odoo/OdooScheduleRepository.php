@@ -8,6 +8,10 @@ use Illuminate\Support\Str;
 
 class OdooScheduleRepository
 {
+    private const TEAM_CALENDAR_MARKER = 'EMS_TEAM_CALENDAR:';
+
+    private ?string $calendarEventMarkerField = null;
+
     public function __construct(private readonly OdooServiceAccount $odoo) {}
 
     public function areas(bool $activeOnly = true): Collection
@@ -34,9 +38,75 @@ class OdooScheduleRepository
         $areas=$this->areas(false)->keyBy('id');
         return collect($this->search('ems.schedule.day.meta',[["schedule_date",">=",$start->toDateString()],["schedule_date","<=",$end->toDateString()]],['id','company_id','area_id','schedule_date','holiday_name','note','has_blocked_time','blocked_start','blocked_end'],'schedule_date, company_id, id'))->map(fn(array $r)=>new OdooScheduleRecord(['id'=>(int)$r['id'],'company_id'=>$this->id($r['company_id']??null),'schedule_area_id'=>$this->id($r['area_id']??null),'area'=>$areas->get($this->id($r['area_id']??null)),'schedule_date'=>Carbon::parse($r['schedule_date']),'holiday_name'=>($r['holiday_name']??null)?:null,'note'=>($r['note']??null)?:null,'blocked_start'=>($r['has_blocked_time']??false)?$this->floatToTime($r['blocked_start']??0):null,'blocked_end'=>($r['has_blocked_time']??false)?$this->floatToTime($r['blocked_end']??0):null]));
     }
+    public function teamCalendarEvents(Carbon $start,Carbon $end): Collection
+    {
+        $markerField=$this->calendarEventMarkerField();
+        $rangeStart=$start->copy()->startOfDay()->utc()->format('Y-m-d H:i:s');
+        $rangeEnd=$end->copy()->endOfDay()->utc()->format('Y-m-d H:i:s');
+        $requestedFields=['id','name','start','stop','allday','description'];if($markerField!=='description')$requestedFields[]=$markerField;
+        return collect($this->search('calendar.event',[["start","<=",$rangeEnd],["stop",">=",$rangeStart],[$markerField,"ilike",self::TEAM_CALENDAR_MARKER]],$requestedFields,'start, id'))->map(function(array $r)use($markerField):OdooScheduleRecord{
+            $markerValue=(string)($r[$markerField]??'');
+            $meta=$this->teamEventMeta($markerValue);
+            $allDay=(bool)($r['allday']??false);
+            $start=$allDay?Carbon::parse($r['start']):Carbon::parse($r['start'],'UTC')->setTimezone(config('app.timezone'));
+            $stop=$allDay?Carbon::parse($r['stop']):Carbon::parse($r['stop'],'UTC')->setTimezone(config('app.timezone'));
+            return new OdooScheduleRecord(['id'=>(int)$r['id'],'source'=>'calendar_event','company_id'=>(int)($meta['company_id']??0),'schedule_date'=>$start->copy()->startOfDay(),'holiday_name'=>(string)($r['name']??'Team event'),'note'=>$this->teamEventDescription($r['description']??null,$markerField),'blocked_start'=>$allDay?null:$start->format('H:i'),'blocked_end'=>$allDay?null:$stop->format('H:i')]);
+        });
+    }
+    public function createTeamCalendarEvent(array $d): int {return $this->create('calendar.event',$this->teamCalendarEventValues($d));}
+    public function updateTeamCalendarEvent(int $id,array $d): void {$this->write('calendar.event',[$id],$this->teamCalendarEventValues($d));}
+    public function deleteTeamCalendarEvent(int $id): void {$this->unlink('calendar.event',[$id]);}
     public function upsertDay(array $d): int {$domain=[["company_id","=",(int)$d['company_id']],["schedule_date","=",$d['schedule_date']],["area_id","=",!empty($d['schedule_area_id'])?(int)$d['schedule_area_id']:false]];$ids=$this->searchIds('ems.schedule.day.meta',$domain,1);$v=['company_id'=>(int)$d['company_id'],'area_id'=>!empty($d['schedule_area_id'])?(int)$d['schedule_area_id']:false,'schedule_date'=>$d['schedule_date'],'holiday_name'=>$d['holiday_name']??false,'note'=>$d['note']??false,'has_blocked_time'=>!empty($d['blocked_start'])&&!empty($d['blocked_end']),'blocked_start'=>$this->timeToFloat($d['blocked_start']??null),'blocked_end'=>$this->timeToFloat($d['blocked_end']??null)];return $ids?($this->write('ems.schedule.day.meta',$ids,$v)?$ids[0]:$ids[0]):$this->create('ems.schedule.day.meta',$v);}
+    public function createDay(array $d): int {return $this->create('ems.schedule.day.meta',['company_id'=>(int)$d['company_id'],'area_id'=>!empty($d['schedule_area_id'])?(int)$d['schedule_area_id']:false,'schedule_date'=>$d['schedule_date'],'holiday_name'=>$d['holiday_name']??false,'note'=>$d['note']??false,'has_blocked_time'=>!empty($d['blocked_start'])&&!empty($d['blocked_end']),'blocked_start'=>$this->timeToFloat($d['blocked_start']??null),'blocked_end'=>$this->timeToFloat($d['blocked_end']??null)]);}
     public function updateDay(int $id,array $d): void {$this->write('ems.schedule.day.meta',[$id],['company_id'=>(int)$d['company_id'],'area_id'=>!empty($d['schedule_area_id'])?(int)$d['schedule_area_id']:false,'schedule_date'=>$d['schedule_date'],'holiday_name'=>$d['holiday_name']??false,'note'=>$d['note']??false,'has_blocked_time'=>!empty($d['blocked_start'])&&!empty($d['blocked_end']),'blocked_start'=>$this->timeToFloat($d['blocked_start']??null),'blocked_end'=>$this->timeToFloat($d['blocked_end']??null)]);}
     public function deleteDay(int $id): void {$this->unlink('ems.schedule.day.meta',[$id]);}
+
+    private function teamCalendarEventValues(array $d): array
+    {
+        $timed=!empty($d['blocked_start'])&&!empty($d['blocked_end']);
+        if($timed){$start=Carbon::createFromFormat('Y-m-d H:i',$d['schedule_date'].' '.$d['blocked_start'],config('app.timezone'))->utc();$stop=Carbon::createFromFormat('Y-m-d H:i',$d['schedule_date'].' '.$d['blocked_end'],config('app.timezone'))->utc();}
+        else{$start=Carbon::parse($d['schedule_date'])->startOfDay();$stop=Carbon::parse($d['schedule_date'])->endOfDay();}
+        $meta=base64_encode(json_encode(['company_id'=>(int)$d['company_id']],JSON_THROW_ON_ERROR));
+        $markerField=$this->calendarEventMarkerField();$markerHtml='<p>'.self::TEAM_CALENDAR_MARKER.$meta.'</p>';
+        $values=['name'=>$d['holiday_name'],'start'=>$start->format('Y-m-d H:i:s'),'stop'=>$stop->format('Y-m-d H:i:s'),'allday'=>!$timed];
+        if($markerField==='description'){$description=filled($d['note']??null)?'<p>'.nl2br(htmlspecialchars((string)$d['note'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8')).'</p>':'';$values['description']=$markerHtml.$description;}
+        else{$values['description']=$d['note']??false;$values[$markerField]=$markerHtml;}
+        return $values;
+    }
+
+    /** @return array<string,mixed> */
+    private function teamEventMeta(string $notes): array
+    {
+        $plain=$this->plainHtml($notes)??'';
+        if(!preg_match('/'.preg_quote(self::TEAM_CALENDAR_MARKER,'/').'([A-Za-z0-9+\/=]+)/',$plain,$matches))return [];
+        $decoded=base64_decode($matches[1],true);
+        if($decoded===false)return [];
+        $meta=json_decode($decoded,true);
+        return is_array($meta)?$meta:[];
+    }
+
+    private function plainHtml(mixed $value): ?string
+    {
+        if(!is_string($value)||trim($value)==='')return null;
+        $plain=trim(html_entity_decode(strip_tags($value),ENT_QUOTES|ENT_HTML5,'UTF-8'));
+        return $plain!==''?$plain:null;
+    }
+
+    private function teamEventDescription(mixed $value,string $markerField): ?string
+    {
+        $plain=$this->plainHtml($value);
+        if($plain===null||$markerField!=='description')return $plain;
+        $clean=preg_replace('/'.preg_quote(self::TEAM_CALENDAR_MARKER,'/').'[A-Za-z0-9+\/=]+/','',$plain);
+        $clean=trim((string)$clean);
+        return $clean!==''?$clean:null;
+    }
+
+    private function calendarEventMarkerField(): string
+    {
+        if($this->calendarEventMarkerField!==null)return $this->calendarEventMarkerField;
+        $fields=$this->odoo->executeKw('calendar.event','fields_get',[],['attributes'=>['type']]);
+        return $this->calendarEventMarkerField=is_array($fields)&&isset($fields['notes'])?'notes':'description';
+    }
 
     public function complianceRules(): Collection {return collect($this->search('ems.schedule.compliance.rule',[],['id','company_id','break_required_after_minutes','minimum_break_minutes','maximum_shift_minutes','minimum_rest_minutes','active'],'company_id'))->map(fn(array $r)=>new OdooScheduleRecord(['id'=>(int)$r['id'],'company_id'=>$this->id($r['company_id']??null),'break_required_after_minutes'=>(int)$r['break_required_after_minutes'],'minimum_break_minutes'=>(int)$r['minimum_break_minutes'],'maximum_shift_minutes'=>(int)$r['maximum_shift_minutes'],'minimum_rest_minutes'=>(int)$r['minimum_rest_minutes'],'is_enabled'=>(bool)$r['active']]));}
     public function upsertComplianceRule(array $d): int {$ids=$this->searchIds('ems.schedule.compliance.rule',[["company_id","=",(int)$d['company_id']]],1);$v=['company_id'=>(int)$d['company_id'],'break_required_after_minutes'=>(int)$d['break_required_after_minutes'],'minimum_break_minutes'=>(int)$d['minimum_break_minutes'],'maximum_shift_minutes'=>(int)$d['maximum_shift_minutes'],'minimum_rest_minutes'=>(int)$d['minimum_rest_minutes'],'active'=>(bool)($d['is_enabled']??false)];return $ids?($this->write('ems.schedule.compliance.rule',$ids,$v)?$ids[0]:$ids[0]):$this->create('ems.schedule.compliance.rule',$v);}

@@ -32,10 +32,19 @@ class TeamCalendarController extends Controller
         try {
             $calendarData = $planningService->getTeamCalendarDataForRange($gridStart, $gridEnd);
             $scheduleRepository ??= app(OdooScheduleRepository::class);
+            $calendarData['events'] = [];
             try {
-                $calendarData['events'] = $scheduleRepository->dayEntries($gridStart, $gridEnd)->all();
+                $calendarData['events'] = $scheduleRepository->teamCalendarEvents($gridStart, $gridEnd)->all();
             } catch (OdooException) {
-                $calendarData['events'] = [];
+                // Keep legacy schedule-day events available if Odoo Calendar is unavailable.
+            }
+            try {
+                $calendarData['events'] = array_merge(
+                    $calendarData['events'],
+                    $scheduleRepository->dayEntries($gridStart, $gridEnd)->all()
+                );
+            } catch (OdooException) {
+                // New calendar events remain available if legacy day metadata is unavailable.
             }
         } catch (OdooException $exception) {
             $calendarError = $exception->getMessage();
@@ -83,7 +92,6 @@ class TeamCalendarController extends Controller
             )
         );
         $upcomingFrom = now()->isSameMonth($month) ? now()->startOfDay() : $month->copy()->startOfMonth();
-        $upcomingUntil = $upcomingFrom->copy()->addDays(7)->endOfDay();
         $teamOnLeave = collect($this->buildTeamLeaveRanges($allEvents))
             ->filter(fn (array $range): bool => Carbon::parse($range['end_date'])->endOfDay()->gte($upcomingFrom)
                 && Carbon::parse($range['date'])->startOfDay()->lte($gridEnd))
@@ -91,11 +99,11 @@ class TeamCalendarController extends Controller
             ->sortBy('date')->take(4)->values()->all();
         $upcomingMoments = $allEvents
             ->filter(fn (array $event): bool => in_array($event['type'], ['birthday', 'event'], true)
-                && Carbon::parse($event['date'])->betweenIncluded($upcomingFrom, $upcomingUntil))
-            ->unique(fn (array $event): string => $event['type'].'-'.$event['employee_id'].'-'.$event['title'])
+                && Carbon::parse($event['date'])->betweenIncluded($gridStart, $gridEnd))
+            ->unique(fn (array $event): string => $event['type'].'-'.($event['id'] ?? $event['employee_id']).'-'.$event['date'].'-'.$event['title'])
             ->sortBy('date')
             ->map(fn (array $event): array => $this->addMomentTiming($event, $upcomingFrom))
-            ->take(4)->values()->all();
+            ->values()->all();
         $myUpcomingShifts = $allEvents
             ->where('type', 'shift')->where('is_mine', true)
             ->filter(fn (array $event): bool => Carbon::parse($event['date'])->gte($upcomingFrom))
@@ -224,6 +232,7 @@ class TeamCalendarController extends Controller
             $companyName = (string) (collect($data['employees'] ?? [])->firstWhere('company_id', $companyId)['company'] ?? 'Company event');
             $events[$date][] = [
                 'id' => (int) ($teamEvent->id ?? 0),
+                'source' => (string) ($teamEvent->source ?? 'day_meta'),
                 'type' => 'event', 'icon' => 'fa-star', 'employee_id' => 0, 'employee' => '',
                 'date' => $date,
                 'company_id' => $companyId, 'company' => $companyName,
@@ -308,7 +317,9 @@ class TeamCalendarController extends Controller
             ? 'Today'
             : ($date->isSameDay($anchor->copy()->addDay()) ? 'Tomorrow' : $date->format('D, d M'));
         $event['timing_label'] = $event['relative_date_label'];
-        $event['timing_class'] = $date->isSameDay($anchor) ? 'is-today' : 'is-upcoming';
+        $event['timing_class'] = $date->isSameDay($anchor)
+            ? 'is-today'
+            : ($date->lt($anchor) ? 'is-past' : 'is-upcoming');
 
         if ($date->isToday() && filled($event['start_time'] ?? null) && filled($event['end_time'] ?? null)) {
             $start = Carbon::parse($event['date'].' '.$event['start_time']);
