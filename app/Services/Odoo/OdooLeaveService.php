@@ -32,7 +32,7 @@ class OdooLeaveService
         }
 
         return [
-            'leaveTypes' => $this->getLeaveTypes(),
+            'leaveTypes' => $this->getLeaveTypes($employeeId),
             'leaveRequests' => $this->getLeaveRequests($employeeId),
         ];
     }
@@ -45,7 +45,7 @@ class OdooLeaveService
             throw new OdooException('Leave requests are unavailable until this account is linked to an Odoo employee.');
         }
 
-        $leaveType = $this->findLeaveType((int) $data['leave_type_id']);
+        $leaveType = $this->findLeaveType((int) $data['leave_type_id'], $employeeId);
         $startDate = $this->parseDateInput((string) $data['start_date']);
         $endDate = $this->parseDateInput((string) $data['end_date']);
 
@@ -139,7 +139,7 @@ class OdooLeaveService
     /**
      * @return array<int, array<string, mixed>>
      */
-    private function getLeaveTypes(): array
+    private function getLeaveTypes(int $employeeId): array
     {
         $fields = $this->leaveTypeFields();
         $requestedFields = array_values(array_filter(array_unique([
@@ -168,6 +168,10 @@ class OdooLeaveService
             [
                 'fields' => $requestedFields,
                 'order' => $order,
+                'context' => [
+                    'employee_id' => $employeeId,
+                    'default_employee_id' => $employeeId,
+                ],
             ]
         );
 
@@ -185,17 +189,21 @@ class OdooLeaveService
             $hasValidAllocation = array_key_exists('has_valid_allocation', $record)
                 ? (bool) $record['has_valid_allocation']
                 : null;
+            $name = (string) ($record['name'] ?? 'Time Off');
+            $canRequest = ! $requiresAllocation || $hasValidAllocation !== false;
             return [
                 'id' => (int) $record['id'],
-                'name' => (string) ($record['name'] ?? 'Time Off'),
+                'name' => $name,
                 'request_unit' => $requestUnit,
                 'request_unit_label' => $this->requestUnitLabel($requestUnit),
                 'requires_allocation' => $requiresAllocation,
                 'has_valid_allocation' => $hasValidAllocation,
                 'validation_type' => (string) ($record['leave_validation_type'] ?? ''),
-                'can_request' => true,
+                'approval_label' => $this->approvalLabel((string) ($record['leave_validation_type'] ?? '')),
+                'usage_hint' => $this->leaveTypeUsageHint($name),
+                'can_request' => $canRequest,
                 'availability_note' => $requiresAllocation && $hasValidAllocation === false
-                    ? 'This leave type needs available balance or an approved allocation in Odoo. Without that, the request may be rejected.'
+                    ? 'No active allocation is available for you in Odoo. Ask your manager or Time Off officer for an allocation before requesting this type.'
                     : null,
             ];
         }, $records)));
@@ -299,9 +307,9 @@ class OdooLeaveService
     /**
      * @return array<string, mixed>
      */
-    private function findLeaveType(int $leaveTypeId): array
+    private function findLeaveType(int $leaveTypeId, int $employeeId): array
     {
-        $leaveType = collect($this->getLeaveTypes())->firstWhere('id', $leaveTypeId);
+        $leaveType = collect($this->getLeaveTypes($employeeId))->firstWhere('id', $leaveTypeId);
 
         if (! $leaveType) {
             throw new OdooException('The selected leave type is not available.');
@@ -340,6 +348,41 @@ class OdooLeaveService
         if (empty($leaveType['id'])) {
             throw new OdooException('The selected leave type is not available.');
         }
+
+        if (($leaveType['can_request'] ?? true) === false) {
+            throw new OdooException(
+                'You do not have an active allocation for '.$leaveType['name'].'. Ask your manager or Time Off officer to allocate this time off type in Odoo.'
+            );
+        }
+    }
+
+    private function approvalLabel(string $validationType): string
+    {
+        return match ($validationType) {
+            'no_validation' => 'Automatically approved',
+            'manager' => 'Manager approval',
+            'hr', 'officer' => 'Time Off officer approval',
+            'both' => 'Manager and Time Off officer approval',
+            default => 'Approval follows company policy',
+        };
+    }
+
+    private function leaveTypeUsageHint(string $name): string
+    {
+        $normalized = Str::lower($name);
+
+        return match (true) {
+            Str::contains($normalized, ['sick', 'medical']) => 'Use when illness, injury, or a medical appointment prevents you from working.',
+            Str::contains($normalized, ['annual', 'vacation', 'paid time']) => 'Use for planned vacation or personal time covered by your paid leave balance.',
+            Str::contains($normalized, ['unpaid']) => 'Use for an approved absence that is not covered by paid leave.',
+            Str::contains($normalized, ['compensatory', 'time in lieu', 'comp day']) => 'Use time off earned for approved overtime or work performed on a non-working day.',
+            Str::contains($normalized, ['extra hour']) => 'Use an earned extra-hours balance for a short absence measured in hours.',
+            Str::contains($normalized, ['extra time']) => 'Use additional time off specifically granted outside the standard annual balance.',
+            Str::contains($normalized, ['maternity', 'paternity', 'parental']) => 'Use for company-approved parental leave under the applicable policy.',
+            Str::contains($normalized, ['bereavement', 'compassionate']) => 'Use following a bereavement or qualifying family emergency.',
+            Str::contains($normalized, ['study', 'training', 'exam']) => 'Use for approved study, training, or examination time.',
+            default => 'Use this category according to your company’s policy for this Odoo time off type.',
+        };
     }
 
     /**

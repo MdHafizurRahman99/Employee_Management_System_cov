@@ -34,7 +34,9 @@ class OdooLeaveServiceTest extends TestCase
                 return $model === 'hr.leave.type'
                     && $method === 'search_read'
                     && $args === [[['active', '=', true]]]
-                    && ($kwargs['order'] ?? null) === 'sequence asc, name asc';
+                    && ($kwargs['order'] ?? null) === 'sequence asc, name asc'
+                    && ($kwargs['context']['employee_id'] ?? null) === 35
+                    && ($kwargs['context']['default_employee_id'] ?? null) === 35;
             })
             ->andReturn([
                 [
@@ -116,8 +118,10 @@ class OdooLeaveServiceTest extends TestCase
         $this->assertSame('Day Based', $result['leaveTypes'][0]['request_unit_label']);
         $this->assertNull($result['leaveTypes'][0]['availability_note']);
         $this->assertSame('Hourly', $result['leaveTypes'][1]['request_unit_label']);
+        $this->assertFalse($result['leaveTypes'][1]['can_request']);
+        $this->assertSame('Use for approved study, training, or examination time.', $result['leaveTypes'][1]['usage_hint']);
         $this->assertSame(
-            'This leave type needs available balance or an approved allocation in Odoo. Without that, the request may be rejected.',
+            'No active allocation is available for you in Odoo. Ask your manager or Time Off officer for an allocation before requesting this type.',
             $result['leaveTypes'][1]['availability_note']
         );
 
@@ -366,6 +370,51 @@ class OdooLeaveServiceTest extends TestCase
             'start_date' => '2026-06-10',
             'end_date' => '2026-06-12',
             'reason' => 'Family event',
+        ]);
+    }
+
+    public function test_it_rejects_a_type_without_an_employee_allocation_before_creating_leave(): void
+    {
+        $serviceAccount = Mockery::mock(OdooServiceAccount::class);
+        $serviceAccount->shouldReceive('executeKw')
+            ->once()
+            ->with('hr.leave.type', 'fields_get', [], ['attributes' => ['string', 'type', 'relation']])
+            ->andReturn([
+                'name' => ['type' => 'char'],
+                'active' => ['type' => 'boolean'],
+                'request_unit' => ['type' => 'selection'],
+                'requires_allocation' => ['type' => 'boolean'],
+                'has_valid_allocation' => ['type' => 'boolean'],
+                'leave_validation_type' => ['type' => 'selection'],
+                'sequence' => ['type' => 'integer'],
+            ]);
+        $serviceAccount->shouldReceive('executeKw')
+            ->once()
+            ->withArgs(function (string $model, string $method, array $args, array $kwargs): bool {
+                return $model === 'hr.leave.type'
+                    && $method === 'search_read'
+                    && $args === [[['active', '=', true]]]
+                    && ($kwargs['context']['employee_id'] ?? null) === 35;
+            })
+            ->andReturn([[
+                'id' => 7,
+                'name' => 'Paid Time Off',
+                'request_unit' => 'day',
+                'requires_allocation' => true,
+                'has_valid_allocation' => false,
+                'leave_validation_type' => 'manager',
+            ]]);
+        $serviceAccount->shouldNotReceive('executeKw')->with('hr.leave', 'create', Mockery::any());
+
+        $service = new OdooLeaveService($serviceAccount);
+
+        $this->expectException(OdooException::class);
+        $this->expectExceptionMessage('You do not have an active allocation for Paid Time Off. Ask your manager or Time Off officer to allocate this time off type in Odoo.');
+
+        $service->submitLeaveRequest(new User(['odoo_employee_id' => 35]), [
+            'leave_type_id' => 7,
+            'start_date' => '2026-06-10',
+            'end_date' => '2026-06-12',
         ]);
     }
 

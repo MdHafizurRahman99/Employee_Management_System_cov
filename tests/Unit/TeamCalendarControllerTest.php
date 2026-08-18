@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\Odoo\OdooLeaveService;
 use App\Services\Odoo\OdooManagerPlanningService;
 use App\Services\Odoo\OdooScheduleRepository;
+use App\Services\Odoo\OdooScheduleRecord;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -38,6 +39,15 @@ class TeamCalendarControllerTest extends TestCase
                 'approved_leave' => [[
                     'employee_id' => 36, 'employee' => 'Sam Lee', 'date_value' => '2026-06-12',
                     'label' => 'Private Leave Type', 'time_label' => 'Full day', 'kind' => 'leave-approved',
+                ], [
+                    'employee_id' => 36, 'employee' => 'Sam Lee', 'date_value' => '2026-06-13',
+                    'label' => 'Private Leave Type', 'time_label' => '24.00h', 'kind' => 'leave-approved',
+                ], [
+                    'employee_id' => 35, 'employee' => 'Alex Morgan', 'date_value' => '2026-07-02',
+                    'label' => 'Private Leave Type', 'time_label' => 'Full day', 'kind' => 'leave-approved',
+                ], [
+                    'employee_id' => 35, 'employee' => 'Alex Morgan', 'date_value' => '2026-07-03',
+                    'label' => 'Private Leave Type', 'time_label' => 'Full day', 'kind' => 'leave-approved',
                 ]],
                 'birthdays' => [[
                     'employee_id' => 36, 'employee' => 'Sam Lee', 'company_id' => 2, 'company' => 'Clinic',
@@ -51,10 +61,20 @@ class TeamCalendarControllerTest extends TestCase
             ]);
         });
         $this->mock(OdooScheduleRepository::class, function (MockInterface $mock): void {
-            $mock->shouldReceive('dayEntries')->once()->andReturn(collect());
+            $mock->shouldReceive('dayEntries')->once()->andReturn(collect([
+                new OdooScheduleRecord([
+                    'id' => 41,
+                    'company_id' => 2,
+                    'schedule_date' => Carbon::parse('2026-06-10'),
+                    'holiday_name' => 'Team briefing',
+                    'note' => 'Main meeting room',
+                    'blocked_start' => '09:00',
+                    'blocked_end' => '10:00',
+                ]),
+            ]));
         });
         $user = new User(['name' => 'Alex Morgan', 'odoo_employee_id' => 35]);
-        $request = Request::create('/team-calendar', 'GET', ['month' => '2026-06']);
+        $request = Request::create('/team-calendar', 'GET', ['month' => '2026-06', 'day' => '2026-06-18']);
         $request->setUserResolver(fn (): User => $user);
 
         $view = (new TeamCalendarController())->index(
@@ -67,12 +87,20 @@ class TeamCalendarControllerTest extends TestCase
 
         $this->assertInstanceOf(View::class, $view);
         $this->assertSame('admin.team-calendar.index', $view->getName());
+        $this->assertSame('2026-06-18', $data['selectedCalendarDate']->toDateString());
         $this->assertCount(2, $data['eventsByDate']['2026-06-12'] ?? []);
         $this->assertSame(1, $data['summary']['shifts']);
         $this->assertSame(1, $data['summary']['people_on_leave']);
         $this->assertSame('2026-06-12', collect($data['eventsByDate']['2026-06-12'])->firstWhere('type', 'shift')['date']);
-        $this->assertCount(1, $data['teamOnLeave']);
+        $this->assertCount(2, $data['teamOnLeave']);
         $this->assertCount(2, $data['upcomingMoments']);
+        $this->assertSame('12–13 Jun', $data['teamOnLeave'][0]['date_range_label']);
+        $this->assertSame('02–03 Jul', $data['teamOnLeave'][1]['date_range_label']);
+        $this->assertSame('Happening now', $data['upcomingMoments'][0]['timing_label']);
+        $this->assertSame('Today', $data['upcomingMoments'][0]['relative_date_label']);
+        $this->assertSame('All day', collect($data['eventsByDate']['2026-06-13'])->firstWhere('type', 'leave')['time']);
+        $this->assertSame('On leave · 2 days', collect($data['eventsByDate']['2026-06-12'])->firstWhere('type', 'leave')['calendar_subtitle']);
+        $this->assertSame('Continues', collect($data['eventsByDate']['2026-06-13'])->firstWhere('type', 'leave')['calendar_subtitle']);
         $this->assertCount(1, $data['myUpcomingShifts']);
         $this->assertTrue($data['weeks'][0][0]['date']->isSunday());
         $this->assertSame(['pending' => 0, 'approved' => 0, 'other' => 0], $data['leaveRequestSummary']);

@@ -147,8 +147,9 @@
                                         @foreach ($leaveTypes as $leaveType)
                                             <option value="{{ $leaveType['id'] }}"
                                                 data-request-unit="{{ $leaveType['request_unit'] }}"
+                                                {{ ($leaveType['can_request'] ?? true) ? '' : 'disabled' }}
                                                 {{ (string) old('leave_type_id') === (string) $leaveType['id'] ? 'selected' : '' }}>
-                                                {{ $leaveType['name'] }} ({{ $leaveType['request_unit_label'] }})
+                                                {{ $leaveType['name'] }} ({{ $leaveType['request_unit_label'] }}){{ ($leaveType['can_request'] ?? true) ? '' : ' — No allocation' }}
                                             </option>
                                         @endforeach
                                     </select>

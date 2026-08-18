@@ -21,6 +21,7 @@ class TeamCalendarController extends Controller
         $month = $this->resolveMonth($request->query('month'));
         $gridStart = $month->copy()->startOfMonth()->startOfWeek(Carbon::SUNDAY);
         $gridEnd = $month->copy()->endOfMonth()->endOfWeek(Carbon::SATURDAY);
+        $selectedCalendarDate = $this->resolveCalendarDate($request->query('day'), $month);
         $calendarData = ['employees' => [], 'shifts' => [], 'approved_leave' => [], 'birthdays' => [], 'events' => []];
         $leaveTypes = [];
         $leaveRequests = [];
@@ -75,17 +76,26 @@ class TeamCalendarController extends Controller
             ->map(fn (array $employee): array => ['id' => (int) $employee['company_id'], 'name' => (string) ($employee['company'] ?? 'Company')])
             ->unique('id')->sortBy('name')->values()->all();
         $allEvents = collect($eventsByDate)->flatten(1);
+        $monthEvents = $allEvents->filter(
+            fn (array $event): bool => Carbon::parse($event['date'])->betweenIncluded(
+                $month->copy()->startOfMonth(),
+                $month->copy()->endOfMonth()
+            )
+        );
         $upcomingFrom = now()->isSameMonth($month) ? now()->startOfDay() : $month->copy()->startOfMonth();
         $upcomingUntil = $upcomingFrom->copy()->addDays(7)->endOfDay();
-        $teamOnLeave = $allEvents
-            ->where('type', 'leave')
-            ->filter(fn (array $event): bool => Carbon::parse($event['date'])->betweenIncluded($month->copy()->startOfMonth(), $month->copy()->endOfMonth()))
-            ->unique('employee_id')->take(4)->values()->all();
+        $teamOnLeave = collect($this->buildTeamLeaveRanges($allEvents))
+            ->filter(fn (array $range): bool => Carbon::parse($range['end_date'])->endOfDay()->gte($upcomingFrom)
+                && Carbon::parse($range['date'])->startOfDay()->lte($gridEnd))
+            ->map(fn (array $range): array => $this->addLeaveTiming($range, $upcomingFrom))
+            ->sortBy('date')->take(4)->values()->all();
         $upcomingMoments = $allEvents
-            ->filter(fn (array $event): bool => in_array($event['type'], ['leave', 'birthday', 'event'], true)
+            ->filter(fn (array $event): bool => in_array($event['type'], ['birthday', 'event'], true)
                 && Carbon::parse($event['date'])->betweenIncluded($upcomingFrom, $upcomingUntil))
             ->unique(fn (array $event): string => $event['type'].'-'.$event['employee_id'].'-'.$event['title'])
-            ->sortBy('date')->take(4)->values()->all();
+            ->sortBy('date')
+            ->map(fn (array $event): array => $this->addMomentTiming($event, $upcomingFrom))
+            ->take(4)->values()->all();
         $myUpcomingShifts = $allEvents
             ->where('type', 'shift')->where('is_mine', true)
             ->filter(fn (array $event): bool => Carbon::parse($event['date'])->gte($upcomingFrom))
@@ -102,6 +112,7 @@ class TeamCalendarController extends Controller
 
         return view('admin.team-calendar.index', [
             'selectedMonth' => $month,
+            'selectedCalendarDate' => $selectedCalendarDate,
             'previousMonth' => $month->copy()->subMonthNoOverflow(),
             'nextMonth' => $month->copy()->addMonthNoOverflow(),
             'weeks' => $weeks,
@@ -119,10 +130,10 @@ class TeamCalendarController extends Controller
             'leaveRequestSummary' => $leaveRequestSummary,
             'canManageCalendar' => (bool) $request->user()?->can('access-manager-tools'),
             'summary' => [
-                'shifts' => $allEvents->where('type', 'shift')->count(),
-                'people_on_leave' => $allEvents->where('type', 'leave')->pluck('employee_id')->unique()->count(),
-                'birthdays' => $allEvents->where('type', 'birthday')->count(),
-                'team_events' => $allEvents->where('type', 'event')->count(),
+                'shifts' => $monthEvents->where('type', 'shift')->count(),
+                'people_on_leave' => $monthEvents->where('type', 'leave')->pluck('employee_id')->unique()->count(),
+                'birthdays' => $monthEvents->where('type', 'birthday')->count(),
+                'team_events' => $monthEvents->where('type', 'event')->count(),
                 'team_members' => count($employees),
             ],
         ]);
@@ -157,21 +168,30 @@ class TeamCalendarController extends Controller
             ];
         }
 
+        $leaveSequenceMeta = $this->buildLeaveSequenceMeta($data['approved_leave'] ?? []);
         foreach ($data['approved_leave'] ?? [] as $leave) {
             $date = (string) ($leave['date_value'] ?? '');
             if ($date === '') continue;
             $employee = (string) ($leave['employee'] ?? 'Employee');
             $employeeId = (int) ($leave['employee_id'] ?? 0);
             $employeeRecord = $employeesById->get($employeeId, []);
+            $timeLabel = trim((string) ($leave['time_label'] ?? ''));
+            if ($timeLabel === '' || preg_match('/^24(?:[.:]00)?h?$/i', $timeLabel)) {
+                $timeLabel = 'All day';
+            }
+            $sequence = $leaveSequenceMeta[$employeeId.'|'.$employee.'|'.$date] ?? ['index' => 0, 'days' => 1];
             $events[$date][] = [
                 'type' => 'leave', 'icon' => 'fa-plane-departure',
                 'date' => $date,
                 'employee_id' => $employeeId, 'employee' => $employee,
                 'company_id' => (int) ($employeeRecord['company_id'] ?? 0),
                 'company' => (string) ($employeeRecord['company'] ?? ''),
-                'calendar_title' => $employee.' · On leave',
+                'calendar_title' => $sequence['index'] === 0 ? $employee : 'On leave',
+                'calendar_subtitle' => $sequence['days'] > 1
+                    ? ($sequence['index'] === 0 ? 'On leave · '.$sequence['days'].' days' : 'Continues')
+                    : 'On leave · '.$timeLabel,
                 'title' => $employee.' · On leave',
-                'time' => (string) ($leave['time_label'] ?? 'Full day'),
+                'time' => $timeLabel,
                 'detail' => 'Approved leave',
                 'is_mine' => $employeeId === $currentEmployeeId,
             ];
@@ -231,12 +251,148 @@ class TeamCalendarController extends Controller
         return $events;
     }
 
+    /** @return array<int, array<string, mixed>> */
+    private function buildTeamLeaveRanges(\Illuminate\Support\Collection $monthEvents): array
+    {
+        $ranges = [];
+
+        foreach ($monthEvents->where('type', 'leave')->groupBy('employee_id') as $leaveDays) {
+            $currentRange = [];
+
+            foreach ($leaveDays->sortBy('date') as $leaveDay) {
+                $previous = $currentRange ? end($currentRange) : null;
+                if ($previous && Carbon::parse($previous['date'])->addDay()->toDateString() !== $leaveDay['date']) {
+                    $ranges[] = $this->summarizeLeaveRange($currentRange);
+                    $currentRange = [];
+                }
+                $currentRange[] = $leaveDay;
+            }
+
+            if ($currentRange) {
+                $ranges[] = $this->summarizeLeaveRange($currentRange);
+            }
+        }
+
+        return collect($ranges)->sortBy('date')->values()->all();
+    }
+
+    /** @param array<string, mixed> $range
+     *  @return array<string, mixed>
+     */
+    private function addLeaveTiming(array $range, Carbon $anchor): array
+    {
+        $start = Carbon::parse($range['date'])->startOfDay();
+        $end = Carbon::parse($range['end_date'])->endOfDay();
+
+        if ($anchor->betweenIncluded($start, $end)) {
+            $range['timing_label'] = now()->isSameDay($anchor) ? 'Away now' : 'In progress';
+            $range['timing_class'] = 'is-live';
+        } elseif ($start->isSameDay($anchor->copy()->addDay())) {
+            $range['timing_label'] = 'Starts tomorrow';
+            $range['timing_class'] = 'is-soon';
+        } else {
+            $range['timing_label'] = 'Starts '.$start->format('d M');
+            $range['timing_class'] = 'is-upcoming';
+        }
+
+        return $range;
+    }
+
+    /** @param array<string, mixed> $event
+     *  @return array<string, mixed>
+     */
+    private function addMomentTiming(array $event, Carbon $anchor): array
+    {
+        $date = Carbon::parse($event['date'])->startOfDay();
+        $event['relative_date_label'] = $date->isSameDay($anchor)
+            ? 'Today'
+            : ($date->isSameDay($anchor->copy()->addDay()) ? 'Tomorrow' : $date->format('D, d M'));
+        $event['timing_label'] = $event['relative_date_label'];
+        $event['timing_class'] = $date->isSameDay($anchor) ? 'is-today' : 'is-upcoming';
+
+        if ($date->isToday() && filled($event['start_time'] ?? null) && filled($event['end_time'] ?? null)) {
+            $start = Carbon::parse($event['date'].' '.$event['start_time']);
+            $end = Carbon::parse($event['date'].' '.$event['end_time']);
+            if (now()->betweenIncluded($start, $end)) {
+                $event['timing_label'] = 'Happening now';
+                $event['timing_class'] = 'is-live';
+            } elseif (now()->gt($end)) {
+                $event['timing_label'] = 'Earlier today';
+                $event['timing_class'] = 'is-past-today';
+            }
+        }
+
+        return $event;
+    }
+
+    /** @param array<int, array<string, mixed>> $leaveDays
+     *  @return array<string, array{index:int,days:int}>
+     */
+    private function buildLeaveSequenceMeta(array $leaveDays): array
+    {
+        $meta = [];
+
+        foreach (collect($leaveDays)->groupBy(fn (array $leave): string => (int) ($leave['employee_id'] ?? 0).'|'.(string) ($leave['employee'] ?? 'Employee')) as $employeeKey => $employeeLeaveDays) {
+            $sequence = [];
+            $flush = function () use (&$sequence, &$meta, $employeeKey): void {
+                $count = count($sequence);
+                foreach ($sequence as $index => $leaveDay) {
+                    $meta[$employeeKey.'|'.$leaveDay['date_value']] = ['index' => $index, 'days' => $count];
+                }
+                $sequence = [];
+            };
+
+            foreach ($employeeLeaveDays->filter(fn (array $leave): bool => filled($leave['date_value'] ?? null))->sortBy('date_value') as $leaveDay) {
+                $previous = $sequence ? end($sequence) : null;
+                if ($previous && Carbon::parse($previous['date_value'])->addDay()->toDateString() !== $leaveDay['date_value']) {
+                    $flush();
+                }
+                $sequence[] = $leaveDay;
+            }
+
+            if ($sequence) {
+                $flush();
+            }
+        }
+
+        return $meta;
+    }
+
+    /** @param array<int, array<string, mixed>> $leaveDays
+     *  @return array<string, mixed>
+     */
+    private function summarizeLeaveRange(array $leaveDays): array
+    {
+        $summary = $leaveDays[0];
+        $start = Carbon::parse($summary['date']);
+        $end = Carbon::parse($leaveDays[array_key_last($leaveDays)]['date']);
+        $summary['end_date'] = $end->toDateString();
+        $summary['date_range_label'] = $start->isSameDay($end)
+            ? $start->format('d M')
+            : ($start->isSameMonth($end)
+                ? $start->format('d').'–'.$end->format('d M')
+                : $start->format('d M').' – '.$end->format('d M'));
+
+        return $summary;
+    }
+
     private function resolveMonth(mixed $value): Carbon
     {
         try {
             return filled($value) ? Carbon::createFromFormat('Y-m', (string) $value)->startOfMonth() : now()->startOfMonth();
         } catch (\Throwable) {
             return now()->startOfMonth();
+        }
+    }
+
+    private function resolveCalendarDate(mixed $value, Carbon $month): Carbon
+    {
+        try {
+            return filled($value)
+                ? Carbon::createFromFormat('Y-m-d', (string) $value)->startOfDay()
+                : (now()->isSameMonth($month) ? now()->startOfDay() : $month->copy()->startOfMonth());
+        } catch (\Throwable) {
+            return now()->isSameMonth($month) ? now()->startOfDay() : $month->copy()->startOfMonth();
         }
     }
 }
