@@ -23,11 +23,11 @@ class ScheduleBudgetServiceTest extends TestCase
 
         $this->assertSame(450,$result['shifts'][0]['payable_minutes']);
         $this->assertSame(300.0,$result['shifts'][0]['projected_cost']);
-        $this->assertFalse($result['shifts'][1]['cost_known']);
+        $this->assertCount(1, $result['shifts']);
         $this->assertSame(300.0,$result['summary']['projected_cost']);
         $this->assertSame(200.0,$result['summary']['variance']);
-        $this->assertSame(1,$result['summary']['unknown_shifts']);
-        $this->assertSame(1,$result['summary']['open_shifts']);
+        $this->assertSame(0,$result['summary']['unknown_shifts']);
+        $this->assertArrayNotHasKey('open_shifts',$result['summary']);
         $this->assertTrue($result['summary']['totals_comparable']);
     }
 }

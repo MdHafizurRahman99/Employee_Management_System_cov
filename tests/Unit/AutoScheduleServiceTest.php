@@ -26,10 +26,10 @@ class AutoScheduleServiceTest extends TestCase
         $this->assertSame(2, $preview['summary']['assigned']);
         $this->assertSame([13, 11], array_column($preview['proposals'], 'employee_id'));
         $this->assertSame('2026-07-20', $preview['proposals'][0]['date']);
-        $this->assertSame(0, $preview['summary']['open']);
+        $this->assertArrayNotHasKey('open', $preview['summary']);
     }
 
-    public function test_it_uses_open_shifts_and_respects_odoo_blocked_time(): void
+    public function test_it_leaves_unstaffed_positions_unfilled_and_respects_odoo_blocked_time(): void
     {
         $page = $this->pageData();
         $page['employees'] = [];
@@ -46,9 +46,10 @@ class AutoScheduleServiceTest extends TestCase
             Carbon::parse('2026-07-20'), $page, [$area], [$blocked], $this->autoOptions()
         );
 
-        $this->assertSame('open', $preview['rows'][0]['status']);
+        $this->assertSame('unfilled', $preview['rows'][0]['status']);
         $this->assertSame('blocked', $preview['rows'][1]['status']);
-        $this->assertCount(1, $preview['proposals']);
+        $this->assertCount(0, $preview['proposals']);
+        $this->assertSame(1, $preview['summary']['unfilled']);
         $this->assertSame(1, $preview['summary']['blocked']);
     }
 
@@ -202,9 +203,9 @@ class AutoScheduleServiceTest extends TestCase
         ]);
     }
 
-    /** @return array{company_id:int,work_location_id:int,start_time:string,end_time:string,max_weekly_hours:int,create_open_shifts:bool,allow_diary_override:bool} */
+    /** @return array{company_id:int,work_location_id:int,start_time:string,end_time:string,max_weekly_hours:int,allow_diary_override:bool} */
     private function autoOptions(): array
     {
-        return ['company_id'=>2,'work_location_id'=>7,'start_time'=>'09:00','end_time'=>'17:00','max_weekly_hours'=>38,'create_open_shifts'=>true,'allow_diary_override'=>false];
+        return ['company_id'=>2,'work_location_id'=>7,'start_time'=>'09:00','end_time'=>'17:00','max_weekly_hours'=>38,'allow_diary_override'=>false];
     }
 }

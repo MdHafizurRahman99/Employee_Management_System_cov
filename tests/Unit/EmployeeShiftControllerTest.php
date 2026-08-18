@@ -136,6 +136,7 @@ class EmployeeShiftControllerTest extends TestCase
 
     public function test_it_lists_eligible_open_shifts_for_the_selected_week(): void
     {
+        $this->markTestSkipped('The employee unassigned-shift page has been removed.');
         $employee = new User(['odoo_employee_id' => 35]);
         $this->mock(OdooManagerPlanningService::class, function (MockInterface $mock): void {
             $mock->shouldReceive('getOpenShiftsForEmployee')->once()->andReturn([[
@@ -155,6 +156,7 @@ class EmployeeShiftControllerTest extends TestCase
 
     public function test_employee_can_claim_an_open_shift(): void
     {
+        $this->markTestSkipped('Claiming unassigned shifts has been removed.');
         $employee = new User(['odoo_employee_id' => 35]);
         $this->mock(OdooManagerPlanningService::class, function (MockInterface $mock) use ($employee): void {
             $mock->shouldReceive('claimOpenShift')->once()->with($employee, 77, '2026-06-12 08:00:00');
@@ -177,6 +179,7 @@ class EmployeeShiftControllerTest extends TestCase
 
     public function test_a_stale_open_shift_claim_returns_a_visible_error(): void
     {
+        $this->markTestSkipped('Claiming unassigned shifts has been removed.');
         $employee = new User(['odoo_employee_id' => 35]);
         $this->mock(OdooManagerPlanningService::class, function (MockInterface $mock): void {
             $mock->shouldReceive('claimOpenShift')->once()->andThrow(new OdooException('This open shift has already been claimed or is no longer available.'));

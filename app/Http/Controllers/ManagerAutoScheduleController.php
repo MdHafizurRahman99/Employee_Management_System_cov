@@ -89,14 +89,14 @@ class ManagerAutoScheduleController extends Controller
             'month' => $weekStart->format('Y-m'),
             'day' => $weekStart->toDateString(),
             'view' => 'area',
-        ])->with('success', $result['created'].' Odoo shift(s) created: '.$result['assigned'].' assigned and '.$result['open'].' open.');
+        ])->with('success', $result['created'].' assigned Odoo shift(s) created.');
         if($undo && $result['created_ids']){
             try{$redirect->with('schedule_undo',$undo->recordCreatedSlots($result['created_ids'],'Auto schedule coverage',$planning,$request->user(),$options['company_id']));}catch(OdooException|\RuntimeException){}
         }
         return $redirect;
     }
 
-    /** @return array{company_id:int,work_location_id:int,start_time:string,end_time:string,max_weekly_hours:int,create_open_shifts:bool,allow_diary_override:bool} */
+    /** @return array{company_id:int,work_location_id:int,start_time:string,end_time:string,max_weekly_hours:int,allow_diary_override:bool} */
     private function options(Request $request, bool $validate): array
     {
         $defaults = [
@@ -105,9 +105,6 @@ class ManagerAutoScheduleController extends Controller
             'start_time' => (string) $request->input('start_time', '09:00'),
             'end_time' => (string) $request->input('end_time', '17:00'),
             'max_weekly_hours' => (int) $request->input('max_weekly_hours', 38),
-            'create_open_shifts' => $request->has('preview') || $request->isMethod('post')
-                ? $request->boolean('create_open_shifts')
-                : true,
             'allow_diary_override' => $request->boolean('allow_diary_override'),
         ];
         if (! $validate) {
@@ -121,7 +118,6 @@ class ManagerAutoScheduleController extends Controller
             'start_time' => ['required', 'date_format:H:i'],
             'end_time' => ['required', 'date_format:H:i'],
             'max_weekly_hours' => ['required', 'integer', 'min:1', 'max:80'],
-            'create_open_shifts' => ['nullable', 'boolean'],
             'allow_diary_override' => ['nullable', 'boolean'],
         ]);
         if ($data['end_time'] <= $data['start_time']) {
@@ -134,7 +130,6 @@ class ManagerAutoScheduleController extends Controller
             'start_time' => $data['start_time'],
             'end_time' => $data['end_time'],
             'max_weekly_hours' => (int) $data['max_weekly_hours'],
-            'create_open_shifts' => (bool) ($data['create_open_shifts'] ?? false),
             'allow_diary_override' => (bool) ($data['allow_diary_override'] ?? false),
         ];
     }
@@ -150,7 +145,6 @@ class ManagerAutoScheduleController extends Controller
             'start_time' => $options['start_time'],
             'end_time' => $options['end_time'],
             'max_weekly_hours' => $options['max_weekly_hours'],
-            'create_open_shifts' => $options['create_open_shifts'] ? 1 : 0,
             'allow_diary_override' => $options['allow_diary_override'] ? 1 : 0,
         ];
     }

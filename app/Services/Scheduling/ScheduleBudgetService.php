@@ -20,6 +20,9 @@ class ScheduleBudgetService
         $companies = [];
 
         foreach ($shifts as $shift) {
+            if ((int) ($shift['employee_id'] ?? 0) < 1) {
+                continue;
+            }
             $date = ($shift['start_at'] ?? null) instanceof Carbon ? $shift['start_at']->toDateString() : (string) ($shift['date_value'] ?? '');
             $companyId = (int) ($shift['company_id'] ?? 0);
             $employeeId = (int) ($shift['employee_id'] ?? 0);
@@ -52,7 +55,7 @@ class ScheduleBudgetService
         $currencies=collect($companies)->pluck('currency')->filter()->unique();
         $totalsComparable=$currencies->count()<=1;
 
-        return ['shifts'=>$rows,'companies'=>array_values($companies),'summary'=>['projected_cost'=>$knownCost,'total_budget'=>$totalBudget,'variance'=>$totalsComparable?round($totalBudget-$knownCost,2):null,'known_shifts'=>count(array_filter($rows,fn(array $r):bool=>$r['cost_known'])),'unknown_shifts'=>count(array_filter($rows,fn(array $r):bool=>!$r['cost_known'])),'open_shifts'=>count(array_filter($rows,fn(array $r):bool=>empty($r['employee_id']))),'currency'=>$totalsComparable?($currencies->first()??'AUD'):'MIXED','totals_comparable'=>$totalsComparable]];
+        return ['shifts'=>$rows,'companies'=>array_values($companies),'summary'=>['projected_cost'=>$knownCost,'total_budget'=>$totalBudget,'variance'=>$totalsComparable?round($totalBudget-$knownCost,2):null,'known_shifts'=>count(array_filter($rows,fn(array $r):bool=>$r['cost_known'])),'unknown_shifts'=>count(array_filter($rows,fn(array $r):bool=>!$r['cost_known'])),'currency'=>$totalsComparable?($currencies->first()??'AUD'):'MIXED','totals_comparable'=>$totalsComparable]];
     }
 
     /** @param array<int,array<string,mixed>> $shifts @return array<string,mixed> */

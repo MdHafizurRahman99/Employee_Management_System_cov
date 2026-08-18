@@ -34,6 +34,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\TryTestController;
+use App\Http\Controllers\TeamCalendarController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -82,7 +83,6 @@ Route::middleware(['auth', 'can:access-manager-tools'])->group(function () {
     Route::post('manager/shifts', [ManagerShiftController::class, 'store'])->name('manager.shifts.store');
     Route::post('manager/shifts/publish-week', [ManagerShiftController::class, 'publishWeek'])->name('manager.shifts.publish-week');
     Route::post('manager/shifts/bulk-delete', [ManagerShiftController::class, 'bulkDelete'])->name('manager.shifts.bulk-delete');
-    Route::post('manager/shifts/bulk-open', [ManagerShiftController::class, 'bulkOpen'])->name('manager.shifts.bulk-open');
     Route::post('manager/shifts/bulk-update', [ManagerShiftController::class, 'bulkUpdate'])->name('manager.shifts.bulk-update');
     Route::post('manager/shifts/copy-period', [ManagerShiftController::class, 'copyPeriod'])->name('manager.shifts.copy-period');
     Route::post('manager/shifts/{shift}/update', [ManagerShiftController::class, 'update'])->name('manager.shifts.update');
@@ -115,6 +115,7 @@ Route::middleware(['auth', 'can:access-manager-tools'])->group(function () {
 // })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
+    Route::get('team-calendar', [TeamCalendarController::class, 'index'])->name('team-calendar.index');
     Route::get('employee/availability', [EmployeeAvailabilityController::class, 'index'])->name('employee.availability.index');
     Route::post('employee/availability', [EmployeeAvailabilityController::class, 'store'])->name('employee.availability.store');
     Route::post('employee/availability/{availability}/update', [EmployeeAvailabilityController::class, 'update'])->name('employee.availability.update');
@@ -137,8 +138,6 @@ Route::middleware('auth')->group(function () {
     Route::post('employee/calendar-entries/{calendarEntry}/delete', [EmployeeCalendarEntryController::class, 'destroy'])
         ->whereNumber('calendarEntry')
         ->name('employee.calendar-entries.destroy');
-    Route::get('employee/open-shifts', [EmployeeShiftController::class, 'openShifts'])->name('employee.open-shifts.index');
-    Route::post('employee/open-shifts/{shift}/claim', [EmployeeShiftController::class, 'claimOpenShift'])->name('employee.open-shifts.claim');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

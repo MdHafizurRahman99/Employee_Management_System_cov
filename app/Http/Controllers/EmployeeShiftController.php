@@ -10,7 +10,6 @@ use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use App\Services\Scheduling\SchedulePublishService;
 use App\Services\Odoo\OdooEmployeeScheduleEntryService;
-use App\Services\Odoo\OdooManagerPlanningService;
 
 class EmployeeShiftController extends Controller
 {
@@ -106,27 +105,6 @@ class EmployeeShiftController extends Controller
 
         return redirect()->route('employee.shifts.index', ['month' => $validated['month']])
             ->with('success', $validated['status'] === 'accepted' ? 'Shift accepted.' : 'Shift declined. Your manager can see the reason.');
-    }
-
-    public function openShifts(Request $request, OdooManagerPlanningService $planningService): View
-    {
-        // Open Shifts disabled. Kept as a soft-delete endpoint for rollback compatibility.
-        abort(404);
-    }
-
-    public function claimOpenShift(Request $request, OdooManagerPlanningService $planningService, SchedulePublishService $publishService, int $shift): RedirectResponse
-    {
-        // Open Shifts disabled. Claiming unassigned shifts is no longer allowed.
-        abort(404);
-    }
-
-    private function resolveOpenShiftDay(?string $day): Carbon
-    {
-        try {
-            return $day ? Carbon::createFromFormat('Y-m-d', $day)->startOfDay() : now()->startOfDay();
-        } catch (\Throwable) {
-            return now()->startOfDay();
-        }
     }
 
     private function resolveMonth(?string $month): Carbon

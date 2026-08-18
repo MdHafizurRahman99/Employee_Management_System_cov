@@ -66,8 +66,15 @@
         </li>
     @endif
 
+    <hr class="sidebar-divider my-0">
+    <li class="nav-item {{ request()->routeIs('team-calendar.*') ? 'active' : '' }}">
+        <a class="nav-link" href="{{ route('team-calendar.index') }}">
+            <i class="fas fa-fw fa-calendar-week"></i>
+            <span>Team Calendar</span>
+        </a>
+    </li>
+
     @if (auth()->user()->isOdooUser())
-        <hr class="sidebar-divider my-0">
         @if (! auth()->user()->isManagerLike())
             <li class="nav-item">
                 <a class="nav-link" href="{{ route('dashboard') }}">
@@ -86,12 +93,6 @@
             <a class="nav-link" href="{{ route('employee.shifts.index') }}">
                 <i class="fas fa-fw fa-calendar-alt"></i>
                 <span>My Shifts</span>
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" href="{{ route('employee.open-shifts.index') }}">
-                <i class="fas fa-fw fa-hand-paper"></i>
-                <span>Open Shifts</span>
             </a>
         </li>
         <li class="nav-item">

@@ -14,7 +14,7 @@ class AutoScheduleService
      * @param array<string,mixed> $pageData
      * @param iterable<int,object> $areas
      * @param iterable<int,object> $dayEntries
-     * @param array{company_id:int,work_location_id:int,start_time:string,end_time:string,max_weekly_hours:int,create_open_shifts:bool,allow_diary_override:bool} $options
+     * @param array{company_id:int,work_location_id:int,start_time:string,end_time:string,max_weekly_hours:int,allow_diary_override:bool} $options
      * @return array<string,mixed>
      */
     public function preview(Carbon $weekStart, array $pageData, iterable $areas, iterable $dayEntries, array $options): array
@@ -27,7 +27,6 @@ class AutoScheduleService
         $endTime = substr($options['end_time'], 0, 5);
         $duration = $this->minutes($startTime, $endTime);
         $maximumMinutes = max(1, (int) $options['max_weekly_hours']) * 60;
-        $allowOpen = (bool) $options['create_open_shifts'];
         $allowDiaryOverride = (bool) ($options['allow_diary_override'] ?? false);
         $employees = array_values(array_filter($pageData['employees'] ?? [], fn (array $employee): bool =>
             (int) ($employee['company_id'] ?? 0) === $companyId
@@ -52,7 +51,7 @@ class AutoScheduleService
 
         $rows = [];
         $proposed = [];
-        $summary = ['coverage_cells' => 0, 'positions_needed' => 0, 'assigned' => 0, 'diary_overrides' => 0, 'open' => 0, 'unfilled' => 0, 'blocked' => 0];
+        $summary = ['coverage_cells' => 0, 'positions_needed' => 0, 'assigned' => 0, 'diary_overrides' => 0, 'unfilled' => 0, 'blocked' => 0];
 
         foreach ($areaList as $area) {
             $coverage = $area->coverageRequirements->keyBy('weekday');
@@ -134,11 +133,6 @@ class AutoScheduleService
                         if ($diaryOverride) {
                             $summary['diary_overrides']++;
                         }
-                    } elseif ($allowOpen) {
-                        $row = $base + ['status' => 'open', 'employee_id' => null, 'employee' => 'Open shift', 'reason' => 'No eligible employee was available within the weekly-hours limit.'];
-                        $proposed[] = $row;
-                        $rows[] = $row;
-                        $summary['open']++;
                     } else {
                         $rows[] = $base + ['status' => 'unfilled', 'employee_id' => null, 'employee' => null, 'reason' => 'No eligible employee was available.'];
                         $summary['unfilled']++;
@@ -159,12 +153,11 @@ class AutoScheduleService
         ];
     }
 
-    /** @return array{created:int,assigned:int,open:int,created_ids:array<int,int>} */
+    /** @return array{created:int,assigned:int,created_ids:array<int,int>} */
     public function apply(array $preview, OdooManagerPlanningService $planning): array
     {
         $createdIds = [];
         $assigned = 0;
-        $open = 0;
 
         try {
             foreach ($preview['proposals'] as $proposal) {
@@ -182,7 +175,7 @@ class AutoScheduleService
                         : 'Generated from Odoo coverage requirements; reviewed before creation.',
                 ]);
                 $createdIds = array_merge($createdIds, $ids);
-                $proposal['status'] === 'assigned' ? $assigned++ : $open++;
+                $assigned++;
             }
         } catch (\Throwable $exception) {
             foreach (array_reverse($createdIds) as $slotId) {
@@ -193,7 +186,7 @@ class AutoScheduleService
                 : new \RuntimeException($exception->getMessage(), 0, $exception);
         }
 
-        return ['created' => count($createdIds), 'assigned' => $assigned, 'open' => $open, 'created_ids' => $createdIds];
+        return ['created' => count($createdIds), 'assigned' => $assigned, 'created_ids' => $createdIds];
     }
 
     /** @param array<string,mixed> $employee @param array<string,mixed> $slot @param array<string,mixed>|null $rosterRow */

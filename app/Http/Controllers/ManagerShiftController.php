@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\Odoo\OdooException;
 use App\Services\Odoo\OdooManagerPlanningService;
+use App\Services\Odoo\OdooScheduleRepository;
 use App\Services\Scheduling\SchedulingAreaService;
 use App\Services\Scheduling\ScheduleDayService;
 use App\Services\Scheduling\ScheduleComplianceService;
@@ -14,6 +15,7 @@ use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class ManagerShiftController extends Controller
 {
@@ -214,10 +216,10 @@ class ManagerShiftController extends Controller
     /**
      * Store a new Odoo planning slot for the team.
      */
-    public function store(Request $request, OdooManagerPlanningService $planningService, ?ScheduleUndoService $undo = null): RedirectResponse
+    public function store(Request $request, OdooManagerPlanningService $planningService, ?ScheduleUndoService $undo = null, ?OdooScheduleRepository $scheduleRepository = null): RedirectResponse
     {
         $validated = $request->validate([
-            'employee_id' => ['nullable', 'integer'],
+            'employee_id' => ['required', 'integer', 'min:1'],
             'role_id' => ['required', 'integer'],
             'company_id' => ['required', 'integer'],
             'work_location_id' => ['nullable', 'integer'],
@@ -225,13 +227,50 @@ class ManagerShiftController extends Controller
             'shift_end_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:shift_date'],
             'start_time' => ['required', 'date_format:H:i'],
             'end_time' => ['required', 'date_format:H:i'],
+            'breaks' => ['nullable', 'array', 'max:10'],
+            'breaks.*.start_time' => ['nullable', 'date_format:H:i'],
+            'breaks.*.end_time' => ['nullable', 'date_format:H:i'],
             'title' => ['nullable', 'string', 'max:120'],
             'note' => ['nullable', 'string', 'max:2000'],
         ]);
 
+        $breaks = $this->validatedBreakPlan(
+            is_array($validated['breaks'] ?? null) ? $validated['breaks'] : [],
+            (string) $validated['start_time'],
+            (string) $validated['end_time']
+        );
+        unset($validated['breaks']);
+
         try {
             $createdIds = $planningService->createShiftsReturningIds($validated);
             $createdCount = count($createdIds);
+            $createdBreakIds = [];
+
+            if ($breaks !== []) {
+                $scheduleRepository ??= app(OdooScheduleRepository::class);
+
+                try {
+                    foreach ($createdIds as $createdId) {
+                        foreach ($breaks as $break) {
+                            $createdBreakIds[] = $scheduleRepository->createBreak([
+                                'odoo_slot_id' => (int) $createdId,
+                                'start_time' => $break['start_time'],
+                                'duration_minutes' => $break['duration_minutes'],
+                                'is_paid' => false,
+                                'note' => null,
+                            ]);
+                        }
+                    }
+                } catch (OdooException $exception) {
+                    foreach (array_reverse($createdBreakIds) as $createdBreakId) {
+                        try { $scheduleRepository->deleteBreak((int) $createdBreakId); } catch (OdooException) {}
+                    }
+                    foreach (array_reverse($createdIds) as $createdId) {
+                        try { $planningService->deleteShift((int) $createdId); } catch (OdooException) {}
+                    }
+                    throw new OdooException('The shift and its breaks could not be saved together. '.$exception->getMessage());
+                }
+            }
         } catch (OdooException $exception) {
             return redirect()
                 ->route('manager.shifts.create', $this->preservedFilters($request))
@@ -249,12 +288,56 @@ class ManagerShiftController extends Controller
     }
 
     /**
+     * @param array<int, array<string, mixed>> $breaks
+     * @return array<int, array{start_time:string,end_time:string,duration_minutes:int}>
+     */
+    private function validatedBreakPlan(array $breaks, string $shiftStart, string $shiftEnd): array
+    {
+        $plan = [];
+
+        foreach ($breaks as $index => $break) {
+            $start = trim((string) ($break['start_time'] ?? ''));
+            $end = trim((string) ($break['end_time'] ?? ''));
+
+            if ($start === '' && $end === '') continue;
+            if ($start === '' || $end === '') {
+                throw ValidationException::withMessages([
+                    "breaks.$index.start_time" => 'Enter both a start and end time for this break.',
+                ]);
+            }
+            if ($end <= $start) {
+                throw ValidationException::withMessages([
+                    "breaks.$index.end_time" => 'Break end time must be later than its start time.',
+                ]);
+            }
+            if ($start < $shiftStart || $end > $shiftEnd) {
+                throw ValidationException::withMessages([
+                    "breaks.$index.start_time" => 'Each break must fit completely inside the shift.',
+                ]);
+            }
+
+            $startMinutes = ((int) substr($start, 0, 2) * 60) + (int) substr($start, 3, 2);
+            $endMinutes = ((int) substr($end, 0, 2) * 60) + (int) substr($end, 3, 2);
+            $plan[] = ['start_time' => $start, 'end_time' => $end, 'duration_minutes' => $endMinutes - $startMinutes];
+        }
+
+        usort($plan, fn (array $left, array $right): int => strcmp($left['start_time'], $right['start_time']));
+        foreach ($plan as $index => $break) {
+            if ($index > 0 && $break['start_time'] < $plan[$index - 1]['end_time']) {
+                throw ValidationException::withMessages(['breaks' => 'Break times cannot overlap.']);
+            }
+        }
+
+        return $plan;
+    }
+
+    /**
      * Update an existing Odoo planning slot for the team.
      */
     public function update(Request $request, OdooManagerPlanningService $planningService, int $shift): RedirectResponse
     {
         $validated = $request->validate([
-            'employee_id' => ['nullable', 'integer'],
+            'employee_id' => ['required', 'integer', 'min:1'],
             'role_id' => ['required', 'integer'],
             'company_id' => ['required', 'integer'],
             'work_location_id' => ['required', 'integer'],
@@ -387,57 +470,6 @@ class ManagerShiftController extends Controller
                 : $count.' Odoo shifts were deleted successfully.');
     }
 
-    /**
-     * Convert multiple selected shifts into open shifts.
-     */
-    public function bulkOpen(Request $request, OdooManagerPlanningService $planningService): RedirectResponse
-    {
-        $validated = $request->validate([
-            'month' => ['required', 'date_format:Y-m'],
-            'day' => ['required', 'date_format:Y-m-d'],
-            'shifts' => ['required', 'array', 'min:1'],
-            'shifts.*.id' => ['required', 'integer'],
-            'shifts.*.role_id' => ['required', 'integer'],
-            'shifts.*.company_id' => ['required', 'integer'],
-            'shifts.*.work_location_id' => ['required', 'integer'],
-            'shifts.*.shift_date' => ['required', 'date_format:Y-m-d'],
-            'shifts.*.start_time' => ['required', 'date_format:H:i'],
-            'shifts.*.end_time' => ['required', 'date_format:H:i'],
-            'shifts.*.title' => ['nullable', 'string', 'max:120'],
-            'shifts.*.note' => ['nullable', 'string', 'max:2000'],
-            'shifts.*.last_known_write_date' => ['nullable', 'string', 'max:40'],
-        ]);
-
-        try {
-            foreach ($validated['shifts'] as $shiftData) {
-                $planningService->updateShift((int) $shiftData['id'], [
-                    'employee_id' => null,
-                    'role_id' => (int) $shiftData['role_id'],
-                    'company_id' => (int) $shiftData['company_id'],
-                    'work_location_id' => (int) $shiftData['work_location_id'],
-                    'shift_date' => (string) $shiftData['shift_date'],
-                    'start_time' => (string) $shiftData['start_time'],
-                    'end_time' => (string) $shiftData['end_time'],
-                    'title' => $shiftData['title'] ?? null,
-                    'note' => $shiftData['note'] ?? null,
-                    'last_known_write_date' => (string) ($shiftData['last_known_write_date'] ?? ''),
-                ]);
-            }
-        } catch (OdooException $exception) {
-            return redirect()
-                ->route('manager.shifts.create', $this->preservedFilters($request))
-                ->withErrors(['manager_shift' => $exception->getMessage()]);
-        }
-
-        $count = count($validated['shifts']);
-
-        return redirect()
-            ->route('manager.shifts.create', $this->preservedFilters($request))
-            ->with('success', $count === 1
-                ? 'The selected shift is now an open shift.'
-                : $count.' selected shifts were converted to open shifts.');
-    }
-
     /** Update common fields across multiple selected shifts. */
     public function bulkUpdate(Request $request, OdooManagerPlanningService $planningService): RedirectResponse
     {
@@ -446,7 +478,7 @@ class ManagerShiftController extends Controller
             'day' => ['required', 'date_format:Y-m-d'],
             'shifts' => ['required', 'array', 'min:1'],
             'shifts.*.id' => ['required', 'integer'],
-            'shifts.*.employee_id' => ['nullable', 'integer'],
+            'shifts.*.employee_id' => ['required', 'integer', 'min:1'],
             'shifts.*.role_id' => ['required', 'integer'],
             'shifts.*.company_id' => ['required', 'integer'],
             'shifts.*.work_location_id' => ['required', 'integer'],
@@ -723,7 +755,6 @@ class ManagerShiftController extends Controller
                 'shift_count' => 0,
                 'scheduled_hours' => '0h',
                 'people_scheduled' => 0,
-                'open_shifts' => 0,
                 'published_shifts' => 0,
                 'unpublished_shifts' => 0,
                 'updated_shifts' => 0,

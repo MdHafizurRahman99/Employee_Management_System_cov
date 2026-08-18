@@ -161,6 +161,27 @@ class EmployeeLeaveControllerTest extends TestCase
         $this->assertSame(route('employee.leave.index'), $response->getTargetUrl());
     }
 
+    public function test_team_calendar_leave_submission_returns_to_the_selected_calendar_month(): void
+    {
+        $this->mock(OdooLeaveService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('submitLeaveRequest')->once()->withArgs(fn (User $user, array $payload): bool =>
+                $user->odoo_employee_id === 35
+                    && ! array_key_exists('return_to', $payload)
+                    && ! array_key_exists('calendar_month', $payload)
+            )->andReturn(57);
+        });
+
+        $response = $this->controller()->store(
+            $this->requestWithUser('POST', '/employee/leave-requests', [
+                'leave_type_id' => '7', 'start_date' => '2026-07-14', 'end_date' => '2026-07-18',
+                'return_to' => 'team_calendar', 'calendar_month' => '2026-07',
+            ], $this->employeeUser()),
+            app(OdooLeaveService::class)
+        );
+
+        $this->assertSame(route('team-calendar.index', ['month' => '2026-07']), $response->getTargetUrl());
+    }
+
     public function test_it_passes_shift_bridge_fields_when_submitting_from_a_shift(): void
     {
         $this->mock(OdooLeaveService::class, function (MockInterface $mock): void {

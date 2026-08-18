@@ -47,7 +47,7 @@ class OdooPlanningService
             $this->resolveField($fields, ['resource_id']),
             $this->resolveField($fields, ['employee_id']),
             isset($fields['write_date']) ? 'write_date' : null,
-            ...array_values(array_intersect(['ems_publish_state','ems_published_at','ems_published_by','ems_requires_confirmation','ems_confirmation_status','ems_confirmation_note','ems_confirmation_responded_at','ems_confirmation_responded_by','ems_was_open_shift_claim','ems_claimed_at','ems_claimed_by','ems_notification_mode','ems_notification_status','ems_notification_sent_at','ems_reminder_sent_at','ems_notification_error'], array_keys($fields))),
+            ...array_values(array_intersect(['ems_publish_state','ems_published_at','ems_published_by','ems_requires_confirmation','ems_confirmation_status','ems_confirmation_note','ems_confirmation_responded_at','ems_confirmation_responded_by','ems_notification_mode','ems_notification_status','ems_notification_sent_at','ems_reminder_sent_at','ems_notification_error'], array_keys($fields))),
         ])));
 
         $domain = [
@@ -179,7 +179,7 @@ class OdooPlanningService
             'end_at' => $endAt,
             'is_today' => $startAt->toDateString() === $today,
             'write_date_value' => is_string($record['write_date'] ?? null) ? $record['write_date'] : '',
-            '_odoo_schedule_meta' => array_intersect_key($record, array_flip(['ems_publish_state','ems_published_at','ems_published_by','ems_requires_confirmation','ems_confirmation_status','ems_confirmation_note','ems_confirmation_responded_at','ems_confirmation_responded_by','ems_was_open_shift_claim','ems_claimed_at','ems_claimed_by','ems_notification_mode','ems_notification_status','ems_notification_sent_at','ems_reminder_sent_at','ems_notification_error'])),
+            '_odoo_schedule_meta' => array_intersect_key($record, array_flip(['ems_publish_state','ems_published_at','ems_published_by','ems_requires_confirmation','ems_confirmation_status','ems_confirmation_note','ems_confirmation_responded_at','ems_confirmation_responded_by','ems_notification_mode','ems_notification_status','ems_notification_sent_at','ems_reminder_sent_at','ems_notification_error'])),
         ];
     }
 

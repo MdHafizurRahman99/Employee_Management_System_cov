@@ -2,7 +2,6 @@
 
 namespace App\Services\Odoo;
 
-use App\Models\User;
 use App\Services\Scheduling\SchedulePublishService;
 use App\Support\ShiftCalendarBuilder;
 use Carbon\Carbon;
@@ -169,109 +168,61 @@ class OdooManagerPlanningService
         }));
     }
 
-    /** @return array<int, array<string, mixed>> */
-    public function getOpenShiftsForEmployee(User $user, Carbon $selectedDate): array
+    /**
+     * Shared, read-only calendar data for authenticated employees and managers.
+     * Approved leave intentionally exposes only that a colleague is away; the
+     * private leave reason and leave type remain in the approval workflow.
+     *
+     * @return array{employees:array<int,array<string,mixed>>,shifts:array<int,array<string,mixed>>,approved_leave:array<int,array<string,mixed>>,birthdays:array<int,array<string,mixed>>}
+     */
+    public function getTeamCalendarDataForRange(Carbon $periodStart, Carbon $periodEnd): array
     {
-        $employee = $this->findEmployeeForUser($user);
+        $periodStart = $periodStart->copy()->startOfDay();
+        $periodEnd = $periodEnd->copy()->endOfDay();
+        $employees = $this->getSelectableEmployees();
+        $employeeIds = array_values(array_filter(array_map(
+            fn (array $employee): int => (int) ($employee['id'] ?? 0),
+            $employees
+        )));
+        try {
+            $approvedLeave = array_values(array_filter(
+                $this->fetchWeeklyLeaveSignals($employeeIds, $periodStart, $periodEnd),
+                fn (array $signal): bool => ($signal['kind'] ?? '') === 'leave-approved'
+            ));
+        } catch (OdooException) {
+            $approvedLeave = [];
+        }
+        $birthdays = [];
 
-        if (! $employee) {
-            throw new OdooException('Your account is not linked to an active Odoo employee.');
+        foreach ($employees as $employee) {
+            $birthday = $this->parseDateValue($employee['birthday'] ?? null);
+            if (! $birthday) continue;
+
+            for ($year = $periodStart->year; $year <= $periodEnd->year; $year++) {
+                try {
+                    $occurrence = Carbon::createSafe($year, $birthday->month, $birthday->day, 0, 0, 0, config('app.timezone'));
+                } catch (\Throwable) {
+                    continue;
+                }
+
+                if ($occurrence->betweenIncluded($periodStart, $periodEnd)) {
+                    $birthdays[] = [
+                        'employee_id' => (int) ($employee['id'] ?? 0),
+                        'employee' => (string) ($employee['name'] ?? 'Employee'),
+                        'company_id' => $employee['company_id'] ?? null,
+                        'company' => (string) ($employee['company'] ?? 'N/A'),
+                        'date_value' => $occurrence->toDateString(),
+                    ];
+                }
+            }
         }
 
-        return array_values(array_filter($this->getWeeklyShiftsForDate($selectedDate), function (array $shift) use ($employee): bool {
-            $startAt = $shift['start_at'] ?? null;
-
-            return empty($shift['employee_id'])
-                && $startAt instanceof Carbon
-                && $startAt->isFuture()
-                && $this->employeeCanWorkShift($employee, $shift);
-        }));
-    }
-
-    public function claimOpenShift(User $user, int $slotId, string $lastKnownWriteDate): void
-    {
-        $employee = $this->findEmployeeForUser($user);
-
-        if (! $employee) {
-            throw new OdooException('Your account is not linked to an active Odoo employee.');
-        }
-
-        $fields = $this->planningFields();
-        $startField = $this->resolveField($fields, ['start_datetime', 'start_dt', 'start_date']);
-        $endField = $this->resolveField($fields, ['end_datetime', 'end_dt', 'end_date']);
-        $shift = $startField && $endField ? $this->getShiftForManager($slotId, $startField, $endField) : null;
-
-        if (! $shift || ! empty($shift['employee_id'])) {
-            throw new OdooException('This open shift has already been claimed or is no longer available.');
-        }
-
-        if (! ($shift['start_at'] ?? null) instanceof Carbon || ! $shift['start_at']->isFuture()) {
-            throw new OdooException('Past or started shifts cannot be claimed.');
-        }
-
-        if (! $this->employeeCanWorkShift($employee, $shift)) {
-            throw new OdooException('This shift is outside your company or eligible planning roles.');
-        }
-
-        $this->guardEmployeeClaimLeave($employee, $shift['start_at']);
-
-        $this->updateShift($slotId, [
-            'employee_id' => $employee['id'],
-            'role_id' => $shift['role_id'],
-            'company_id' => $shift['company_id'],
-            'work_location_id' => $shift['work_location_id'],
-            'shift_date' => $shift['shift_date_value'],
-            'start_time' => $shift['start_time_value'],
-            'end_time' => $shift['end_time_value'],
-            'title' => $shift['title_value'] ?? null,
-            'note' => $shift['note'] ?? null,
-            'last_known_write_date' => $lastKnownWriteDate,
-        ]);
-    }
-
-    /** @return array<string, mixed>|null */
-    private function findEmployeeForUser(User $user): ?array
-    {
-        if (! $user->odoo_employee_id) {
-            return null;
-        }
-
-        return $this->findById($this->getSelectableEmployees(), (int) $user->odoo_employee_id);
-    }
-
-    /** @param array<string,mixed> $employee @param array<string,mixed> $shift */
-    private function employeeCanWorkShift(array $employee, array $shift): bool
-    {
-        $shiftCompanyId = (int) ($shift['company_id'] ?? 0);
-
-        if (! $this->employeeCoversCompany($employee, $shiftCompanyId)) {
-            return false;
-        }
-
-        $roleIds = array_map('intval', $employee['planning_role_ids'] ?? []);
-
-        return $roleIds === [] || in_array((int) ($shift['role_id'] ?? 0), $roleIds, true);
-    }
-
-    /** @param array<string,mixed> $employee */
-    private function guardEmployeeClaimLeave(
-        array $employee,
-        Carbon $shiftStart
-    ): void
-    {
-        $employeeId = (int) ($employee['id'] ?? 0);
-        $weekStart = $shiftStart->copy()->startOfWeek();
-        $weekEnd = $shiftStart->copy()->endOfWeek();
-        $date = $shiftStart->toDateString();
-
-        $approvedLeave = array_filter(
-            $this->fetchWeeklyLeaveSignals([$employeeId], $weekStart, $weekEnd),
-            fn (array $signal): bool => ($signal['date_value'] ?? '') === $date && ($signal['kind'] ?? '') === 'leave-approved'
-        );
-
-        if ($approvedLeave !== []) {
-            throw new OdooException('You have approved leave on this shift date.');
-        }
+        return [
+            'employees' => $employees,
+            'shifts' => $this->getShiftsForRange($periodStart, $periodEnd),
+            'approved_leave' => $approvedLeave,
+            'birthdays' => $birthdays,
+        ];
     }
 
     public function createShift(array $data): int
@@ -305,7 +256,7 @@ class OdooManagerPlanningService
         $workLocation = $this->findById($selectableWorkLocations, $workLocationId);
         $isExistingShiftCopy = ($data['_copy_existing_shift'] ?? false) === true;
 
-        if ($employeeId > 0 && ! $employee) {
+        if (! $employee) {
             throw new OdooException('Please choose a valid employee.');
         }
 
@@ -365,8 +316,7 @@ class OdooManagerPlanningService
                 $company,
                 $window['start_at'],
                 $window['end_at'],
-                $data,
-                false
+                $data
             );
 
             $slotId = $this->serviceAccount->executeKw('planning.slot', 'create', [$payload]);
@@ -409,7 +359,7 @@ class OdooManagerPlanningService
         $company = $this->findById($this->getSelectableCompanies(), (int) $data['company_id']);
         $workLocation = $this->findById($this->getSelectableWorkLocations(), (int) ($data['work_location_id'] ?? 0));
 
-        if ($employeeId > 0 && ! $employee) {
+        if (! $employee) {
             throw new OdooException('Please choose a valid employee.');
         }
 
@@ -456,7 +406,7 @@ class OdooManagerPlanningService
             $this->guardShiftConflicts($employee, $startField, $endField, $startAt, $endAt, $slotId);
         }
 
-        $payload = $this->buildSlotPayload($fields, $employee, $role, $company, $startAt, $endAt, $data, true);
+        $payload = $this->buildSlotPayload($fields, $employee, $role, $company, $startAt, $endAt, $data);
         $result = $this->serviceAccount->executeKw('planning.slot', 'write', [
             [$slotId],
             $payload,
@@ -516,6 +466,7 @@ class OdooManagerPlanningService
             $this->resolveField($fields, ['company_assignment_scope']),
             $this->resolveField($fields, ['work_company_ids']),
             $this->resolveField($fields, ['work_email']),
+            $this->resolveField($fields, ['birthday']),
             $this->resolveField($fields, ['active']),
             $this->resolveField($fields, ['planning_role_ids', 'role_ids']),
             $this->resolveField($fields, ['default_planning_role_id', 'planning_role_id', 'default_role_id', 'role_id']),
@@ -600,6 +551,7 @@ class OdooManagerPlanningService
                 'company_coverage_scope' => $companyCoverageScope,
                 'covered_company_ids' => array_values(array_unique($coveredCompanyIds)),
                 'work_email' => (string) ($record['work_email'] ?? ''),
+                'birthday' => isset($record['birthday']) && is_string($record['birthday']) ? $record['birthday'] : null,
                 'planning_role_ids' => $planningRoleIds,
                 'default_planning_role_id' => $defaultPlanningRole['id'],
                 'job_id' => $job['id'],
@@ -811,7 +763,7 @@ class OdooManagerPlanningService
                     $this->resolveField($fields, ['company_id']),
                     $this->resolveField($fields, ['employee_id']),
                     $this->resolveField($fields, ['ems_work_location_id']),
-                    ...array_values(array_intersect(['ems_work_location_id','ems_publish_state','ems_published_at','ems_published_by','ems_requires_confirmation','ems_confirmation_status','ems_confirmation_note','ems_confirmation_responded_at','ems_confirmation_responded_by','ems_was_open_shift_claim','ems_claimed_at','ems_claimed_by','ems_notification_mode','ems_notification_status','ems_notification_sent_at','ems_reminder_sent_at','ems_notification_error'], array_keys($fields))),
+                    ...array_values(array_intersect(['ems_work_location_id','ems_publish_state','ems_published_at','ems_published_by','ems_requires_confirmation','ems_confirmation_status','ems_confirmation_note','ems_confirmation_responded_at','ems_confirmation_responded_by','ems_notification_mode','ems_notification_status','ems_notification_sent_at','ems_reminder_sent_at','ems_notification_error'], array_keys($fields))),
                 ])));
         $records = [];
         $pageSize = 500;
@@ -843,7 +795,7 @@ class OdooManagerPlanningService
         return array_values(array_filter(array_map(
             fn (mixed $record) => is_array($record) ? $this->normalizeShift($record, $startField, $endField) : null,
             $records
-        )));
+        ), fn (?array $shift): bool => $shift !== null && (int) ($shift['employee_id'] ?? 0) > 0));
     }
 
     /**
@@ -1156,29 +1108,24 @@ class OdooManagerPlanningService
      */
     private function buildSlotPayload(
         array $fields,
-        ?array $employee,
+        array $employee,
         array $role,
         array $company,
         Carbon $startAt,
         Carbon $endAt,
-        array $data,
-        bool $clearEmployee = false
+        array $data
     ): array {
         $payload = [
             $this->resolveField($fields, ['start_datetime', 'start_dt', 'start_date']) => $this->toOdooDateTime($startAt),
             $this->resolveField($fields, ['end_datetime', 'end_dt', 'end_date']) => $this->toOdooDateTime($endAt),
         ];
 
-        if (isset($fields['employee_id']) && $employee) {
+        if (isset($fields['employee_id'])) {
             $payload['employee_id'] = $employee['id'];
-        } elseif ($clearEmployee && isset($fields['employee_id'])) {
-            $payload['employee_id'] = false;
         }
 
-        if (isset($fields['resource_id']) && $employee && $employee['resource_id']) {
+        if (isset($fields['resource_id']) && $employee['resource_id']) {
             $payload['resource_id'] = $employee['resource_id'];
-        } elseif ($clearEmployee && isset($fields['resource_id'])) {
-            $payload['resource_id'] = false;
         }
 
         if (isset($fields['role_id'])) {
@@ -1206,9 +1153,7 @@ class OdooManagerPlanningService
         if ($title !== '' && isset($fields['name'])) {
             $payload['name'] = $title;
         } elseif (isset($fields['name'])) {
-            $payload['name'] = $employee
-                ? $role['name'].' - '.$employee['name']
-                : $role['name'].' - Open Shift';
+            $payload['name'] = $role['name'].' - '.$employee['name'];
         }
 
         if (isset($fields['note'])) {
@@ -1263,7 +1208,7 @@ class OdooManagerPlanningService
             'updated_label' => $writeDate !== '' ? ($this->parseDateTime($writeDate)?->format('d-m-Y h:i A') ?? 'N/A') : 'N/A',
             'start_at' => $startAt,
             'end_at' => $endAt,
-            '_odoo_schedule_meta' => array_intersect_key($record, array_flip(['ems_publish_state','ems_published_at','ems_published_by','ems_requires_confirmation','ems_confirmation_status','ems_confirmation_note','ems_confirmation_responded_at','ems_confirmation_responded_by','ems_was_open_shift_claim','ems_claimed_at','ems_claimed_by','ems_notification_mode','ems_notification_status','ems_notification_sent_at','ems_reminder_sent_at','ems_notification_error'])),
+            '_odoo_schedule_meta' => array_intersect_key($record, array_flip(['ems_publish_state','ems_published_at','ems_published_by','ems_requires_confirmation','ems_confirmation_status','ems_confirmation_note','ems_confirmation_responded_at','ems_confirmation_responded_by','ems_notification_mode','ems_notification_status','ems_notification_sent_at','ems_reminder_sent_at','ems_notification_error'])),
         ];
     }
 
@@ -1316,8 +1261,6 @@ class OdooManagerPlanningService
             $weekShifts[] = $shift;
 
             if ($employeeId > 0) {
-                // Team view hides open shifts, so its header totals must only describe
-                // assigned shifts that are actually visible in the roster rows.
                 $dayMinutes[$dateValue] += $minutes;
                 $dayShiftCounts[$dateValue]++;
                 $employeeNamesFromShifts[$employeeId] = [
@@ -1357,9 +1300,6 @@ class OdooManagerPlanningService
 
         $rows = [];
         $seenEmployeeIds = [];
-
-        // Open Shifts disabled: unassigned planning slots are intentionally hidden.
-        // They remain in the source system but are not displayed in the manager roster.
 
         foreach ($employees as $employee) {
             if (! isset($employee['id']) || ! is_numeric($employee['id'])) {
@@ -1402,7 +1342,6 @@ class OdooManagerPlanningService
                 && (int) $shift['employee_id'] > 0
         ));
         $totalMinutes = array_sum(array_map(fn (array $shift): int => $this->shiftDurationMinutes($shift), $visibleWeekShifts));
-        $openShiftCount = count($shiftsByEmployeeAndDate[0] ?? []);
         $publishedShiftCount = count(array_filter($weekShifts, fn (array $shift): bool => (bool) ($shift['is_published'] ?? false)));
         $updatedShiftCount = count(array_filter($weekShifts, fn (array $shift): bool => (bool) ($shift['was_published'] ?? false)));
         $unpublishedShiftCount = count($weekShifts) - $publishedShiftCount;
@@ -1425,7 +1364,6 @@ class OdooManagerPlanningService
                 'shift_count' => count($visibleWeekShifts),
                 'scheduled_hours' => $this->formatMinutesAsHours($totalMinutes),
                 'people_scheduled' => count($scheduledPeople),
-                'open_shifts' => $openShiftCount,
                 'published_shifts' => $publishedShiftCount,
                 'unpublished_shifts' => $unpublishedShiftCount,
                 'updated_shifts' => $updatedShiftCount,
@@ -1495,7 +1433,6 @@ class OdooManagerPlanningService
             'work_location' => (string) ($employee['work_location'] ?? ''),
             'work_email' => (string) ($employee['work_email'] ?? ''),
             'initials' => $this->initials($name),
-            'is_open' => (bool) ($employee['is_open'] ?? false),
             'cells' => $cells,
             'shift_count' => $shiftCount,
             'time_off_count' => $timeOffCount,
@@ -1606,27 +1543,23 @@ class OdooManagerPlanningService
         $cells = [];
         $totalMinutes = 0;
         $shiftCount = 0;
-        $openShiftCount = 0;
 
         foreach ($days as $day) {
             $dateValue = (string) $day['date_value'];
             $shifts = $shiftsByDate[$dateValue] ?? [];
             $minutes = array_sum(array_map(fn (array $shift): int => $this->shiftDurationMinutes($shift), $shifts));
             $assignedCount = count(array_filter($shifts, fn (array $shift): bool => ! empty($shift['employee_id'])));
-            $openCount = count($shifts) - $assignedCount;
 
             $cells[$dateValue] = [
                 'date_value' => $dateValue,
                 'shifts' => $shifts,
                 'shift_count' => count($shifts),
                 'assigned_count' => $assignedCount,
-                'open_count' => $openCount,
                 'hours_label' => $this->formatMinutesAsHours($minutes),
             ];
 
             $totalMinutes += $minutes;
             $shiftCount += count($shifts);
-            $openShiftCount += $openCount;
         }
 
         return [
@@ -1637,7 +1570,6 @@ class OdooManagerPlanningService
             'tone' => $this->shiftTone((string) ($role['name'] ?? 'Role')),
             'cells' => $cells,
             'shift_count' => $shiftCount,
-            'open_shift_count' => $openShiftCount,
             'scheduled_hours' => $this->formatMinutesAsHours($totalMinutes),
         ];
     }
@@ -1676,7 +1608,6 @@ class OdooManagerPlanningService
         $roleStats = [];
         $companyStats = [];
         $longShiftCount = 0;
-        $openShiftCount = 0;
 
         foreach ($weekShifts as $shift) {
             $minutes = $this->shiftDurationMinutes($shift);
@@ -1708,21 +1639,15 @@ class OdooManagerPlanningService
                 $longShiftCount++;
             }
 
-            if (empty($shift['employee_id'])) {
-                $openShiftCount++;
-            }
         }
 
         $unscheduledPeople = count(array_filter(
             $rows,
-            fn (array $row): bool => ! ($row['is_open'] ?? false) && (int) ($row['shift_count'] ?? 0) === 0
+            fn (array $row): bool => (int) ($row['shift_count'] ?? 0) === 0
         ));
         $overtimeRisks = count(array_filter(
             $rows,
             function (array $row): bool {
-                if ($row['is_open'] ?? false) {
-                    return false;
-                }
                 $minutesByWeek = [];
                 foreach ($row['cells'] ?? [] as $dateValue => $cell) {
                     $weekKey = Carbon::parse($dateValue)->startOfWeek()->toDateString();
@@ -1735,15 +1660,6 @@ class OdooManagerPlanningService
         ));
         $coveredDays = count(array_filter($dayShiftCounts));
         $alerts = [];
-
-        if ($openShiftCount > 0) {
-            $alerts[] = [
-                'type' => 'warning',
-                'icon' => 'fa-inbox',
-                'title' => $openShiftCount.' open shift'.($openShiftCount === 1 ? '' : 's'),
-                'message' => 'Assign these before publishing the roster to employees.',
-            ];
-        }
 
         $unpublishedShiftCount = count(array_filter($weekShifts, fn (array $shift): bool => ! ($shift['is_published'] ?? false)));
 
@@ -1799,7 +1715,7 @@ class OdooManagerPlanningService
                 'type' => 'success',
                 'icon' => 'fa-check-circle',
                 'title' => 'Roster checks clear',
-                'message' => 'No open shifts, long shifts, or overtime warnings were found.',
+                'message' => 'No long-shift or overtime warnings were found.',
             ];
         }
 
@@ -2227,7 +2143,7 @@ class OdooManagerPlanningService
             $timeLabel = 'Unavailable';
 
             if (isset($record['time_range_display']) && is_string($record['time_range_display']) && trim($record['time_range_display']) !== '') {
-                $timeLabel = trim($record['time_range_display']);
+                $timeLabel = $this->formatAvailabilityTimeLabel($record['time_range_display']);
             } elseif ($isFullDay) {
                 $timeLabel = 'Unavailable all day';
             } elseif (isset($record['start_time'], $record['end_time']) && is_numeric($record['start_time']) && is_numeric($record['end_time'])) {
@@ -2249,6 +2165,24 @@ class OdooManagerPlanningService
         }
 
         return $signals;
+    }
+
+    private function formatAvailabilityTimeLabel(string $label): string
+    {
+        $label = trim($label);
+
+        if ($label === '' || preg_match('/\b(?:AM|PM)\b/i', $label) === 1) {
+            return $label;
+        }
+
+        return preg_replace_callback(
+            '/(?<!\d)([01]?\d|2[0-3]):([0-5]\d)(?!\d)/',
+            static fn (array $match): string => Carbon::createFromFormat(
+                'H:i',
+                sprintf('%02d:%s', (int) $match[1], $match[2])
+            )->format('h:i A'),
+            $label
+        ) ?? $label;
     }
 
     /**

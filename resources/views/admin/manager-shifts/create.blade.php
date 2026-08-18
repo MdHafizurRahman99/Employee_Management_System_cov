@@ -5,6 +5,7 @@
 @endsection
 
 @section('css')
+    <link rel="stylesheet" href="{{ asset('staff&shedule/css/bootstrap-datetimepicker.min.css') }}">
     <style>
         .schedule-page {
             --schedule-ink: #16201d;
@@ -565,8 +566,15 @@
         .scope-date-grid > div { padding:0 .35rem; }
         .scope-date-field { position:relative; }
         .scope-date-field label { color:#4e5d58; font-size:.75rem; font-weight:900; letter-spacing:.04em; text-transform:uppercase; }
-        .scope-date-field .form-control { height:48px; border-color:#d8e1dd; border-radius:8px; background:#fbfcfc; color:#1b2d26; font-weight:800; box-shadow:none; }
+        .scope-date-field .input-group { cursor:pointer; }
+        .scope-date-field .form-control { height:48px; border-color:#d8e1dd; border-radius:8px 0 0 8px; background:#fbfcfc; color:#1b2d26; font-weight:800; box-shadow:none; cursor:pointer; }
+        .scope-date-picker-button { display:flex; align-items:center; justify-content:center; width:48px; border:1px solid #d8e1dd; border-left:0; border-radius:0 8px 8px 0; background:#edf8f2; color:#176344; cursor:pointer; }
+        .scope-date-picker-button:hover { background:#dff2e8; color:#0e5337; }
         .scope-date-field .form-control:focus { border-color:#43a477; box-shadow:0 0 0 3px rgba(32,178,107,.12); }
+        .scope-date-field .form-control:focus + .scope-date-picker-button { border-color:#43a477; }
+        .schedule-scope-modal .bootstrap-datetimepicker-widget { z-index:1080; color:#24332d; }
+        .schedule-scope-modal .bootstrap-datetimepicker-widget table td.active,
+        .schedule-scope-modal .bootstrap-datetimepicker-widget table td.active:hover { background:#176344; }
         .scope-range-preview { display:flex; align-items:center; gap:.75rem; margin-top:.8rem; padding:.7rem .8rem; border:1px solid #cfe6da; border-radius:9px; background:#edf8f2; color:#15563a; }
         .scope-range-preview-icon { display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; flex:0 0 auto; border-radius:8px; background:#176344; color:#fff; }
         .scope-range-preview-copy { min-width:0; }
@@ -603,10 +611,6 @@
         .roster-person.is-drag-source {
             background: #eefaf4;
             box-shadow: inset 0 0 0 2px rgba(32, 178, 107, 0.32);
-        }
-
-        .roster-person.is-open {
-            background: #fff9e8;
         }
 
         .area-row-head {
@@ -657,11 +661,6 @@
             font-size: 0.8rem;
             font-weight: 900;
             flex: 0 0 auto;
-        }
-
-        .roster-person.is-open .roster-avatar {
-            background: #fff0bf;
-            color: #8a5b00;
         }
 
         .roster-person-name {
@@ -1186,7 +1185,7 @@
         $employeeTimeOffByCell = [];
         foreach ($rosterRows as $rosterRow) {
             $employeeId = (int) ($rosterRow['employee_id'] ?? 0);
-            if ($employeeId <= 0 || ! empty($rosterRow['is_open'])) {
+            if ($employeeId <= 0) {
                 continue;
             }
             foreach (($rosterRow['cells'] ?? []) as $dateValue => $cell) {
@@ -1271,7 +1270,7 @@
                     <div class="dropdown-menu location-picker-menu" aria-labelledby="deputyLocationButton">
                         <div class="location-picker-head"><strong>Companies</strong><button type="button" class="btn btn-link btn-sm p-0" id="selectAllLocations">Select all</button></div>
                         <div class="location-picker-list">
-                            @foreach ($companies as $company)
+                                        @foreach ($companies as $company)
                                 <label class="location-picker-item"><input type="checkbox" class="deputy-location-option" value="{{ $company['id'] }}" data-label="{{ $company['name'] }}" checked><span>{{ $company['name'] }}</span></label>
                             @endforeach
                         </div>
@@ -1409,11 +1408,6 @@
                 <small>{{ count($employees) }} active employee{{ count($employees) === 1 ? '' : 's' }}</small>
             </div>
             <div class="schedule-stat">
-                <span>Open Shifts</span>
-                <strong>{{ $rosterSummary['open_shifts'] ?? 0 }}</strong>
-                <small>Avg {{ $rosterSummary['average_shift'] ?? '0h' }} per shift</small>
-            </div>
-            <div class="schedule-stat">
                 <span>Published</span>
                 <strong>{{ $publishedCount }}</strong>
                 <small>{{ $confirmationCount }} require confirmation</small>
@@ -1445,7 +1439,7 @@
                 <div class="panel-head">
                     <div>
                         <h6 class="m-0 font-weight-bold">Roster Checks</h6>
-                        <p class="mb-0 small text-muted">Open shifts, long shifts, overtime and coverage warnings.</p>
+                        <p class="mb-0 small text-muted">Long shifts, overtime and coverage warnings.</p>
                     </div>
                     <span class="badge badge-light">{{ count($rosterAlerts) }}</span>
                 </div>
@@ -1575,7 +1569,6 @@
                         <select id="rosterStatusFilter" class="form-control roster-filter">
                             <option value="">All shifts</option>
                             <option value="assigned">Assigned</option>
-                            <option value="open">Open</option>
                             <option value="empty">Unscheduled</option>
                         </select>
                         <button type="button" class="btn btn-outline-secondary btn-sm" id="toggleRosterDensitySecondary" title="Toggle compact density">
@@ -1607,10 +1600,6 @@
                 <div class="schedule-bulkbar-actions">
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="bulkClearSelection">
                         Clear
-                    </button>
-                    <button type="button" class="btn btn-outline-warning btn-sm" id="bulkOpenShift">
-                        <i class="fas fa-inbox mr-1"></i>
-                        Make Open
                     </button>
                     <button type="button" class="btn btn-outline-primary btn-sm" id="bulkEditShift" data-toggle="modal" data-target="#bulk_edit_schedule">
                         <i class="fas fa-edit mr-1"></i>Bulk Edit
@@ -1661,7 +1650,7 @@
                                 ->filter()
                                 ->values();
                         @endphp
-                        <div class="roster-person {{ $row['is_open'] ? 'is-open' : '' }}"
+                        <div class="roster-person"
                             data-roster-key="{{ $rowKey }}"
                             data-roster-search="{{ $rowSearch }}"
                             data-roster-company-id="{{ $row['company_id'] ?? '' }}"
@@ -1669,8 +1658,7 @@
                             data-roster-all-companies="{{ ($row['company_coverage_scope'] ?? 'single') === 'all' ? '1' : '0' }}"
                             data-roster-work-location-id="{{ $row['work_location_id'] ?? '' }}"
                             data-roster-has-shifts="{{ $row['shift_count'] > 0 ? '1' : '0' }}"
-                            data-roster-open="{{ $row['is_open'] ? '1' : '0' }}"
-                            data-employee-id="{{ $row['is_open'] ? '' : $row['employee_id'] }}"
+                            data-employee-id="{{ $row['employee_id'] }}"
                             data-draggable="{{ $canCreateShift ? '1' : '0' }}">
                             <div class="roster-person-main">
                                 <span class="roster-avatar">{{ $row['initials'] }}</span>
@@ -1689,15 +1677,14 @@
                         @foreach ($rosterDays as $day)
                             @php
                                 $cell = $row['cells'][$day['date_value']] ?? ['shifts' => [], 'shift_count' => 0, 'hours_label' => '0h'];
-                                $cellDiary = $row['is_open'] ? [] : ($employeeDiaryByCell[$row['employee_id']][$day['date_value']] ?? []);
+                                $cellDiary = $employeeDiaryByCell[$row['employee_id']][$day['date_value']] ?? [];
                             @endphp
                             <div class="roster-cell schedule-drop-cell {{ $day['is_today'] ? 'is-today' : '' }} {{ $day['is_selected'] ? 'is-selected' : '' }}"
                                 tabindex="0" role="gridcell" aria-label="{{ $row['employee'] }} on {{ $day['date']->format('d-m-Y') }}"
                                 data-roster-key="{{ $rowKey }}"
                                 data-shift-date="{{ $day['date_value'] }}"
-                                data-employee-id="{{ $row['is_open'] ? '' : $row['employee_id'] }}"
-                                data-work-location-id="{{ $row['is_open'] ? '' : ($row['work_location_id'] ?? '') }}"
-                                data-roster-open="{{ $row['is_open'] ? '1' : '0' }}">
+                                data-employee-id="{{ $row['employee_id'] }}"
+                                data-work-location-id="{{ $row['work_location_id'] ?? '' }}">
                                 <div class="shift-stack">
                                     @foreach ($cellDiary as $diaryEntry)
                                         <div class="employee-diary-chip is-{{ $diaryEntry['type_class'] }}"
@@ -1742,7 +1729,7 @@
                                             data-draggable="{{ $canCreateShift ? '1' : '0' }}">
                                             <button type="button" tabindex="-1" class="shift-resize-handle is-start" aria-label="Resize shift start with pointer"></button>
                                             <button type="button" tabindex="-1" class="shift-resize-handle is-end" aria-label="Resize shift end with pointer"></button>
-                                            <button type="button" class="shift-overflow-toggle" aria-label="Open shift actions" aria-expanded="false"><i class="fas fa-ellipsis-v"></i></button>
+                                            <button type="button" class="shift-overflow-toggle" aria-label="Show shift actions" aria-expanded="false"><i class="fas fa-ellipsis-v"></i></button>
                                             <div class="shift-actions">
                                                 <button type="button" class="shift-icon-btn copy-odoo-shift"
                                                     title="Copy shift"
@@ -1791,7 +1778,6 @@
                                             <div class="shift-status-badge is-{{ $shift['publish_state'] ?? 'unpublished' }}">
                                                 {{ $shift['publish_state_label'] ?? 'Unpublished' }}
                                             </div>
-                                            @if($shift['was_open_shift_claim'] ?? false)<div class="shift-status-badge is-published mt-1"><i class="fas fa-hand-paper mr-1"></i>Claimed open shift</div>@endif
                                             <div class="shift-time">{{ $shift['time_label'] }}</div>
                                             @if(!empty($shift['compliance_warnings']))<div class="shift-compliance-chip"><i class="fas fa-exclamation-triangle"></i>{{ count($shift['compliance_warnings']) }} warning{{ count($shift['compliance_warnings'])===1?'':'s' }}</div>@elseif(($shift['planned_break_minutes']??0)>0)<div class="shift-break-chip"><i class="fas fa-mug-hot"></i>{{ $shift['planned_break_minutes'] }}m break</div>@endif
                                             <div class="shift-role">{{ $shift['role'] }}</div>
@@ -1807,9 +1793,9 @@
                                             data-toggle="modal"
                                             data-target="#create_odoo_shift"
                                             data-shift-date="{{ $day['date_value'] }}"
-                                            data-employee-id="{{ $row['is_open'] ? '' : $row['employee_id'] }}"
-                                            data-company-id="{{ $row['is_open'] ? '' : ($row['company_id'] ?? '') }}"
-                                            data-work-location-id="{{ $row['is_open'] ? '' : ($row['work_location_id'] ?? '') }}">
+                                            data-employee-id="{{ $row['employee_id'] }}"
+                                            data-company-id="{{ $row['company_id'] ?? '' }}"
+                                            data-work-location-id="{{ $row['work_location_id'] ?? '' }}">
                                             <i class="fas fa-plus"></i>
                                         </button>
                                         <button type="button" class="cell-add cell-paste paste-shift"
@@ -1817,7 +1803,7 @@
                                             data-toggle="modal"
                                             data-target="#create_odoo_shift"
                                             data-shift-date="{{ $day['date_value'] }}"
-                                            data-employee-id="{{ $row['is_open'] ? '' : $row['employee_id'] }}">
+                                            data-employee-id="{{ $row['employee_id'] }}">
                                             <i class="fas fa-paste mr-1"></i>
                                             Paste
                                         </button>
@@ -1865,14 +1851,13 @@
                                 <div class="area-row-meta">{{ $row['company'] }} Â· {{ $row['role'] }}</div>
                                 <div class="area-row-stats">
                                     <span><i class="fas fa-layer-group"></i> {{ $row['shift_count'] }} shift{{ $row['shift_count'] === 1 ? '' : 's' }}</span>
-                                    <span><i class="fas fa-inbox"></i> {{ $row['open_shift_count'] }} open</span>
                                     <span><i class="fas fa-clock"></i> {{ $row['scheduled_hours'] }}</span>
                                 </div>
                             </div>
 
                             @foreach ($areaBoardDays as $day)
                                 @php
-                                    $cell = $row['cells'][$day['date_value']] ?? ['shifts' => [], 'shift_count' => 0, 'assigned_count' => 0, 'open_count' => 0, 'hours_label' => '0h'];
+                                    $cell = $row['cells'][$day['date_value']] ?? ['shifts' => [], 'shift_count' => 0, 'assigned_count' => 0, 'hours_label' => '0h'];
                                 @endphp
                                 <div class="area-cell schedule-drop-cell coverage-{{ $cell['coverage_status'] ?? 'unconfigured' }} {{ $day['is_today'] ? 'is-today' : '' }} {{ $day['is_selected'] ? 'is-selected' : '' }}"
                                     tabindex="0" role="gridcell" aria-label="{{ $row['role'] }} on {{ $day['date']->format('d-m-Y') }}"
@@ -1894,7 +1879,7 @@
                                     @endif
                                     <div class="shift-stack">
                                         @foreach ($cell['shifts'] as $shift)
-                                            <div class="shift-card" style="{{ $companyShiftStyles[(string) ($shift['company_id'] ?? '')] ?? $defaultCompanyShiftStyle }}" tabindex="0" role="button" aria-label="{{ $shift['employee'] ?: 'Open shift' }}, {{ $shift['time_label'] }}, {{ $shift['publish_state_label'] ?? 'Unpublished' }}"
+                                            <div class="shift-card" style="{{ $companyShiftStyles[(string) ($shift['company_id'] ?? '')] ?? $defaultCompanyShiftStyle }}" tabindex="0" role="button" aria-label="{{ $shift['employee'] }}, {{ $shift['time_label'] }}, {{ $shift['publish_state_label'] ?? 'Unpublished' }}"
                                                 data-area-key="{{ $areaKey }}"
                                                 data-shift-id="{{ $shift['id'] }}"
                                                 data-role-id="{{ $shift['role_id'] ?? '' }}"
@@ -1911,7 +1896,7 @@
                                                 data-draggable="{{ $canCreateShift ? '1' : '0' }}">
                                                 <button type="button" tabindex="-1" class="shift-resize-handle is-start" aria-label="Resize shift start with pointer"></button>
                                                 <button type="button" tabindex="-1" class="shift-resize-handle is-end" aria-label="Resize shift end with pointer"></button>
-                                                <button type="button" class="shift-overflow-toggle" aria-label="Open shift actions" aria-expanded="false"><i class="fas fa-ellipsis-v"></i></button>
+                                                <button type="button" class="shift-overflow-toggle" aria-label="Show shift actions" aria-expanded="false"><i class="fas fa-ellipsis-v"></i></button>
                                                 <div class="shift-actions">
                                                     <button type="button" class="shift-icon-btn copy-odoo-shift"
                                                         title="Copy shift"
@@ -1961,10 +1946,9 @@
                                                 <div class="shift-status-badge is-{{ $shift['publish_state'] ?? 'unpublished' }}">
                                                     {{ $shift['publish_state_label'] ?? 'Unpublished' }}
                                                 </div>
-                                                @if($shift['was_open_shift_claim'] ?? false)<div class="shift-status-badge is-published mt-1"><i class="fas fa-hand-paper mr-1"></i>Claimed open shift</div>@endif
                                                 <div class="shift-time">{{ $shift['time_label'] }}</div>
                                                 @if(!empty($shift['compliance_warnings']))<div class="shift-compliance-chip"><i class="fas fa-exclamation-triangle"></i>{{ count($shift['compliance_warnings']) }} warning{{ count($shift['compliance_warnings'])===1?'':'s' }}</div>@elseif(($shift['planned_break_minutes']??0)>0)<div class="shift-break-chip"><i class="fas fa-mug-hot"></i>{{ $shift['planned_break_minutes'] }}m break</div>@endif
-                                                <div class="shift-role">{{ $shift['employee'] ?: 'Open Shift' }}</div>
+                                                <div class="shift-role">{{ $shift['employee'] }}</div>
                                                 <div class="shift-location"><i class="fas fa-map-marker-alt"></i>{{ $shift['work_location'] ?? 'No work location' }}</div>
                                                 <div class="shift-note">{{ $shift['duration_label'] }}{{ $shift['company'] ? ' | '.$shift['company'] : '' }}</div>
                                                 <div class="shift-resize-meta">Drag across areas or days to reassign</div>
@@ -2255,15 +2239,6 @@
         <div id="bulkDeleteShiftFields"></div>
     </form>
 
-    <form id="bulkOpenShiftForm" action="{{ route('manager.shifts.bulk-open') }}" method="POST" class="d-none">
-        @csrf
-        <input type="hidden" name="month" value="{{ $selectedMonth->format('Y-m') }}">
-        <input type="hidden" name="day" value="{{ $selectedCalendarDateValue }}">
-        <input type="hidden" name="start_date" value="{{ $scheduleRangeStart->toDateString() }}">
-        <input type="hidden" name="end_date" value="{{ $scheduleRangeEnd->toDateString() }}">
-        <div id="bulkOpenShiftFields"></div>
-    </form>
-
     <div id="schedule_scope_modal" class="modal fade schedule-scope-modal" tabindex="-1" role="dialog" aria-labelledby="scheduleScopeTitle" aria-hidden="true"
         data-auto-open="{{ $showScheduleScopeModal ? '1' : '0' }}">
         <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
@@ -2308,11 +2283,17 @@
                             <div class="form-row scope-date-grid">
                                 <div class="form-group col-md-6 scope-date-field">
                                     <label for="scheduleScopeStart">Start date</label>
-                                    <input type="date" name="start_date" id="scheduleScopeStart" class="form-control" value="{{ $scheduleRangeStart->toDateString() }}" required>
+                                    <div class="input-group date" id="scheduleScopeStartPicker">
+                                        <input type="text" name="start_date" id="scheduleScopeStart" class="form-control datetimepicker-input" value="{{ $scheduleRangeStart->format('d-m-Y') }}" autocomplete="off" inputmode="numeric" required>
+                                        <div class="input-group-append scope-date-picker-button datepickerbutton" aria-hidden="true"><span class="input-group-text border-0 bg-transparent text-current"><i class="fas fa-calendar-alt"></i></span></div>
+                                    </div>
                                 </div>
                                 <div class="form-group col-md-6 scope-date-field">
                                     <label for="scheduleScopeEnd">End date</label>
-                                    <input type="date" name="end_date" id="scheduleScopeEnd" class="form-control" value="{{ $scheduleRangeEnd->toDateString() }}" required>
+                                    <div class="input-group date" id="scheduleScopeEndPicker">
+                                        <input type="text" name="end_date" id="scheduleScopeEnd" class="form-control datetimepicker-input" value="{{ $scheduleRangeEnd->format('d-m-Y') }}" autocomplete="off" inputmode="numeric" required>
+                                        <div class="input-group-append scope-date-picker-button datepickerbutton" aria-hidden="true"><span class="input-group-text border-0 bg-transparent text-current"><i class="fas fa-calendar-alt"></i></span></div>
+                                    </div>
                                 </div>
                             </div>
                             <div class="scope-range-preview" id="scheduleScopePreview" aria-live="polite">
@@ -2544,6 +2525,7 @@
                                             @endforeach
                                         </select>
                                         @error('company_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                        <small class="form-text text-muted" id="createCompanyHelp">Showing selected companies covered by this employee.</small>
                                     </div>
                                 </div>
 
@@ -2571,7 +2553,7 @@
                                         <select id="employee_id"
                                             class="form-control @error('employee_id') is-invalid @enderror"
                                             disabled aria-disabled="true">
-                                            <option value="">Open shift (no employee)</option>
+                                            <option value="">Employee required</option>
                                             @foreach ($employees as $employee)
                                                 <option value="{{ $employee['id'] }}"
                                                     data-company-id="{{ $employee['company_id'] ?? '' }}"
@@ -2637,6 +2619,61 @@
                                     @enderror
                                 </div>
                             </div>
+
+                            <section class="shift-break-planner" aria-labelledby="shiftBreakPlannerTitle">
+                                <div class="shift-break-planner-head">
+                                    <div>
+                                        <span class="shift-break-kicker"><i class="fas fa-mug-hot" aria-hidden="true"></i> Break plan</span>
+                                        <h6 id="shiftBreakPlannerTitle">Break time</h6>
+                                        <p>Add meal or rest periods inside the shift. Multiple breaks are supported.</p>
+                                    </div>
+                                    <button type="button" class="btn add-shift-break" id="addShiftBreak">
+                                        <i class="fas fa-plus" aria-hidden="true"></i> Add break
+                                    </button>
+                                </div>
+                                <div id="shiftBreakList" class="shift-break-list">
+                                    @foreach(old('breaks', []) as $breakIndex => $break)
+                                        <div class="shift-break-row" data-break-row>
+                                            <span class="shift-break-number" aria-hidden="true">{{ $breakIndex + 1 }}</span>
+                                            <div class="shift-break-time">
+                                                <label for="break_{{ $breakIndex }}_start">Start</label>
+                                                <input type="time" id="break_{{ $breakIndex }}_start" name="breaks[{{ $breakIndex }}][start_time]" class="form-control" value="{{ $break['start_time'] ?? '' }}" required>
+                                            </div>
+                                            <span class="shift-break-arrow" aria-hidden="true"><i class="fas fa-long-arrow-alt-right"></i></span>
+                                            <div class="shift-break-time">
+                                                <label for="break_{{ $breakIndex }}_end">End</label>
+                                                <input type="time" id="break_{{ $breakIndex }}_end" name="breaks[{{ $breakIndex }}][end_time]" class="form-control" value="{{ $break['end_time'] ?? '' }}" required>
+                                            </div>
+                                            <span class="shift-break-duration" data-break-duration>—</span>
+                                            <button type="button" class="shift-break-remove" data-remove-break aria-label="Remove break {{ $breakIndex + 1 }}"><i class="fas fa-trash-alt" aria-hidden="true"></i></button>
+                                        </div>
+                                    @endforeach
+                                </div>
+                                <div id="shiftBreakEmpty" class="shift-break-empty {{ old('breaks', []) ? 'd-none' : '' }}">
+                                    <i class="far fa-clock" aria-hidden="true"></i>
+                                    <span>No breaks added</span>
+                                    <small>Breaks are optional and must fall within the shift time.</small>
+                                </div>
+                                <div class="shift-break-summary" id="shiftBreakSummary" aria-live="polite">
+                                    <span><strong id="shiftBreakCount">0</strong> planned</span>
+                                    <span><strong id="shiftBreakTotal">0 min</strong> total break</span>
+                                </div>
+                                @error('breaks')<div class="text-danger small font-weight-bold mt-2">{{ $message }}</div>@enderror
+                                @if($errors->has('breaks.*.start_time') || $errors->has('breaks.*.end_time'))
+                                    <div class="text-danger small font-weight-bold mt-2">Please correct the highlighted break times.</div>
+                                @endif
+                            </section>
+
+                            <template id="shiftBreakTemplate">
+                                <div class="shift-break-row" data-break-row>
+                                    <span class="shift-break-number" aria-hidden="true"></span>
+                                    <div class="shift-break-time"><label>Start</label><input type="time" class="form-control" data-break-start required></div>
+                                    <span class="shift-break-arrow" aria-hidden="true"><i class="fas fa-long-arrow-alt-right"></i></span>
+                                    <div class="shift-break-time"><label>End</label><input type="time" class="form-control" data-break-end required></div>
+                                    <span class="shift-break-duration" data-break-duration>—</span>
+                                    <button type="button" class="shift-break-remove" data-remove-break><i class="fas fa-trash-alt" aria-hidden="true"></i></button>
+                                </div>
+                            </template>
 
                             <div class="form-group">
                                 <label for="title">Shift Title</label>
@@ -2788,12 +2825,15 @@
 @endsection
 
 @section('js')
+    <script src="{{ asset('staff&shedule/js/moment.min.js') }}"></script>
+    <script src="{{ asset('staff&shedule/js/bootstrap-datetimepicker.min.js') }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const employeeSelect = document.getElementById('employee_id');
             const employeeLockedInput = document.getElementById('employee_id_locked');
             const roleSelect = document.getElementById('role_id');
             const companySelect = document.getElementById('company_id');
+            const createShiftSubmit = document.querySelector('#create-odoo-shift-form button[type="submit"]');
             const workLocationSelect = document.getElementById('work_location_id');
             const shiftDateInput = document.getElementById('shift_date');
             const shiftEndDateInput = document.getElementById('shift_end_date');
@@ -2836,6 +2876,13 @@
             const schedulePage = document.querySelector('.schedule-page');
             const startTimeInput = document.getElementById('start_time');
             const endTimeInput = document.getElementById('end_time');
+            const shiftBreakList = document.getElementById('shiftBreakList');
+            const shiftBreakTemplate = document.getElementById('shiftBreakTemplate');
+            const addShiftBreakButton = document.getElementById('addShiftBreak');
+            const shiftBreakEmpty = document.getElementById('shiftBreakEmpty');
+            const shiftBreakSummary = document.getElementById('shiftBreakSummary');
+            const shiftBreakCount = document.getElementById('shiftBreakCount');
+            const shiftBreakTotal = document.getElementById('shiftBreakTotal');
             const titleInput = document.getElementById('title');
             const noteInput = document.getElementById('note');
             const createShiftDiaryContext = document.getElementById('createShiftDiaryContext');
@@ -2852,12 +2899,9 @@
             const scheduleBulkBar = document.getElementById('scheduleBulkBar');
             const selectedShiftCount = document.getElementById('selectedShiftCount');
             const bulkClearSelection = document.getElementById('bulkClearSelection');
-            const bulkOpenShift = document.getElementById('bulkOpenShift');
             const bulkDeleteShift = document.getElementById('bulkDeleteShift');
             const bulkDeleteShiftForm = document.getElementById('bulkDeleteShiftForm');
             const bulkDeleteShiftFields = document.getElementById('bulkDeleteShiftFields');
-            const bulkOpenShiftForm = document.getElementById('bulkOpenShiftForm');
-            const bulkOpenShiftFields = document.getElementById('bulkOpenShiftFields');
             const bulkEditShift = document.getElementById('bulkEditShift');
             const bulkUpdateShiftForm = document.getElementById('bulkUpdateShiftForm');
             const bulkUpdateShiftFields = document.getElementById('bulkUpdateShiftFields');
@@ -2910,6 +2954,59 @@
                 return option.dataset.allCompanies === '1'
                     || companyIds.includes(String(companyId))
                     || (includeShared && companyIds.length === 0);
+            };
+
+            const lockedCreateEmployeeOption = () => {
+                const employeeId = employeeLockedInput?.value || employeeSelect?.value || '';
+                return employeeId && employeeSelect
+                    ? Array.from(employeeSelect.options).find((option) => option.value === String(employeeId)) || null
+                    : null;
+            };
+
+            const filterCreateCompanyOptions = (employeeOption = lockedCreateEmployeeOption()) => {
+                if (!companySelect) return [];
+                const companyOptions = Array.from(companySelect.options).filter((option) => option.value);
+                const coveredCompanyIds = employeeOption?.dataset.allCompanies === '1'
+                    ? companyOptions.map((option) => option.value)
+                    : companyIdsForOption(employeeOption);
+                const eligibleCompanyIds = companyOptions
+                    .map((option) => option.value)
+                    .filter((companyId) => (selectedCompanyIds.size === 0 || selectedCompanyIds.has(companyId))
+                        && (!employeeOption || coveredCompanyIds.includes(companyId)));
+
+                companyOptions.forEach((option) => {
+                    const isEligible = eligibleCompanyIds.includes(option.value);
+                    option.disabled = !isEligible;
+                    option.hidden = !isEligible;
+                });
+
+                const current = selectedOption(companySelect);
+                if (current?.value && current.disabled) companySelect.value = '';
+                companySelect.disabled = eligibleCompanyIds.length === 0;
+                if (createShiftSubmit) {
+                    createShiftSubmit.disabled = eligibleCompanyIds.length === 0;
+                    createShiftSubmit.title = eligibleCompanyIds.length === 0
+                        ? 'This employee has no Company Coverage in the current company filter.'
+                        : '';
+                }
+
+                const placeholder = companySelect.querySelector('option[value=""]');
+                if (placeholder) {
+                    placeholder.textContent = eligibleCompanyIds.length === 0
+                        ? 'No selected company is covered by this employee'
+                        : 'Select covered company';
+                }
+
+                const help = document.getElementById('createCompanyHelp');
+                if (help) {
+                    help.textContent = eligibleCompanyIds.length === 0
+                        ? 'This employee has no Company Coverage within the current company filter.'
+                        : `Showing ${eligibleCompanyIds.length} selected ${eligibleCompanyIds.length === 1 ? 'company' : 'companies'} covered by this employee.`;
+                    help.classList.toggle('text-danger', eligibleCompanyIds.length === 0);
+                    help.classList.toggle('text-muted', eligibleCompanyIds.length > 0);
+                }
+
+                return eligibleCompanyIds;
             };
 
             const filterCompanyOptions = (select, companyId, includeShared = false) => {
@@ -3041,7 +3138,6 @@
                 if (employeeOption) {
                     return requestedCompanyIds.find((companyId) => eligibleCompanyIds.includes(String(companyId)))
                         || eligibleCompanyIds[0]
-                        || coveredCompanyIds[0]
                         || '';
                 }
 
@@ -3061,13 +3157,17 @@
                 const employeeOption = data.employeeId && employeeSelect
                     ? Array.from(employeeSelect.options).find((option) => option.value === String(data.employeeId))
                     : null;
+                if (employeeLockedInput && Object.prototype.hasOwnProperty.call(data, 'employeeId')) {
+                    employeeLockedInput.value = data.employeeId || '';
+                }
+                const eligibleCompanyIds = filterCreateCompanyOptions(employeeOption);
                 const companyId = resolveCreateCompanyId(data, employeeOption);
                 if (companySelect && companyId) companySelect.value = companyId;
+                if (companySelect && !companyId && eligibleCompanyIds.length === 1) companySelect.value = eligibleCompanyIds[0];
                 syncCompanyDependencies();
 
                 if (employeeSelect && Object.prototype.hasOwnProperty.call(data, 'employeeId')) {
                     employeeSelect.value = data.employeeId || '';
-                    if (employeeLockedInput) employeeLockedInput.value = data.employeeId || '';
                     // Employee is selected from the roster table; its hidden field submits the locked value.
                     employeeSelect.disabled = true;
                     autoSelectEmployeeWorkLocation();
@@ -3099,6 +3199,7 @@
 
                 updateCreateFilters();
                 updateDiaryContext();
+                refreshShiftBreaks();
             };
 
             const openCreateShiftModal = () => {
@@ -3148,10 +3249,6 @@
 
                 if (scheduleBulkBar) {
                     scheduleBulkBar.classList.toggle('is-active', selectedCount > 0);
-                }
-
-                if (bulkOpenShift) {
-                    bulkOpenShift.disabled = selectedCount === 0 || !hasAssignedSelection;
                 }
 
                 if (bulkDeleteShift) {
@@ -3395,17 +3492,6 @@
                 bulkDeleteShiftForm.submit();
             };
 
-            const submitBulkOpen = () => {
-                const rows = buildSelectedShiftPayloads().filter((payload) => payload.employee_id !== '');
-
-                if (rows.length === 0 || !bulkOpenShiftForm) {
-                    return;
-                }
-
-                buildBulkHiddenFields(bulkOpenShiftFields, rows);
-                bulkOpenShiftForm.submit();
-            };
-
             if (bulkUpdateShiftForm) {
                 bulkUpdateShiftForm.addEventListener('submit', function(event) {
                     const rows = buildSelectedShiftPayloads();
@@ -3448,13 +3534,7 @@
                 }
 
                 const targetEmployeeId = cell.dataset.employeeId || '';
-                const targetIsOpen = cell.dataset.rosterOpen === '1';
-
                 if (dragState.type === 'employee') {
-                    if (dragState.payload.isOpen) {
-                        return targetIsOpen;
-                    }
-
                     return targetEmployeeId !== '' && targetEmployeeId === dragState.payload.employeeId;
                 }
 
@@ -3627,9 +3707,9 @@
                 if (dragState.type === 'employee') {
                     prefillCreateShift({
                         shiftDate: targetDate,
-                        employeeId: dragState.payload.isOpen ? '' : dragState.payload.employeeId,
-                        companyId: dragState.payload.isOpen ? '' : dragState.payload.companyId,
-                        workLocationId: dragState.payload.isOpen ? '' : dragState.payload.workLocationId,
+                        employeeId: dragState.payload.employeeId,
+                        companyId: dragState.payload.companyId,
+                        workLocationId: dragState.payload.workLocationId,
                     });
                     clearDragState();
                     openCreateShiftModal();
@@ -3652,6 +3732,99 @@
 
                 updateCreateFilters();
             };
+
+            const timeValueToMinutes = (value) => {
+                if (!/^\d{2}:\d{2}$/.test(value || '')) return null;
+                const [hours, minutes] = value.split(':').map(Number);
+                return (hours * 60) + minutes;
+            };
+
+            const formatBreakDuration = (minutes) => {
+                if (minutes < 60) return minutes + ' min';
+                const hours = Math.floor(minutes / 60);
+                const remainder = minutes % 60;
+                return hours + 'h' + (remainder ? ' ' + remainder + 'm' : '');
+            };
+
+            const refreshShiftBreaks = () => {
+                if (!shiftBreakList) return;
+                const rows = Array.from(shiftBreakList.querySelectorAll('[data-break-row]'));
+                const shiftStart = timeValueToMinutes(startTimeInput?.value || '');
+                const shiftEnd = timeValueToMinutes(endTimeInput?.value || '');
+                const completedBreaks = [];
+                let totalMinutes = 0;
+
+                rows.forEach((row, index) => {
+                    const start = row.querySelector('input[type="time"]:first-of-type');
+                    const end = row.querySelectorAll('input[type="time"]')[1];
+                    const number = row.querySelector('.shift-break-number');
+                    const duration = row.querySelector('[data-break-duration]');
+                    const remove = row.querySelector('[data-remove-break]');
+                    const startMinutes = timeValueToMinutes(start?.value || '');
+                    const endMinutes = timeValueToMinutes(end?.value || '');
+
+                    if (!start || !end) return;
+                    start.name = `breaks[${index}][start_time]`;
+                    end.name = `breaks[${index}][end_time]`;
+                    start.id = `break_${index}_start`;
+                    end.id = `break_${index}_end`;
+                    start.closest('.shift-break-time')?.querySelector('label')?.setAttribute('for', start.id);
+                    end.closest('.shift-break-time')?.querySelector('label')?.setAttribute('for', end.id);
+                    if (number) number.textContent = String(index + 1);
+                    if (remove) remove.setAttribute('aria-label', `Remove break ${index + 1}`);
+                    start.setCustomValidity('');
+                    end.setCustomValidity('');
+
+                    if (startMinutes !== null && endMinutes !== null) {
+                        if (endMinutes <= startMinutes) {
+                            end.setCustomValidity('Break end time must be later than its start time.');
+                            if (duration) duration.textContent = 'Invalid';
+                        } else if (shiftStart !== null && shiftEnd !== null && (startMinutes < shiftStart || endMinutes > shiftEnd)) {
+                            start.setCustomValidity('This break must fit completely inside the shift.');
+                            if (duration) duration.textContent = 'Outside shift';
+                        } else {
+                            const minutes = endMinutes - startMinutes;
+                            totalMinutes += minutes;
+                            completedBreaks.push({ start, startMinutes, endMinutes });
+                            if (duration) duration.textContent = formatBreakDuration(minutes);
+                        }
+                    } else if (duration) {
+                        duration.textContent = '—';
+                    }
+                });
+
+                completedBreaks.sort((left, right) => left.startMinutes - right.startMinutes);
+                completedBreaks.forEach((current, index) => {
+                    if (index > 0 && current.startMinutes < completedBreaks[index - 1].endMinutes) {
+                        current.start.setCustomValidity('Break times cannot overlap.');
+                    }
+                });
+
+                shiftBreakEmpty?.classList.toggle('d-none', rows.length > 0);
+                shiftBreakSummary?.classList.toggle('is-visible', rows.length > 0);
+                if (shiftBreakCount) shiftBreakCount.textContent = String(rows.length);
+                if (shiftBreakTotal) shiftBreakTotal.textContent = formatBreakDuration(totalMinutes);
+                if (addShiftBreakButton) addShiftBreakButton.disabled = rows.length >= 10;
+            };
+
+            const addShiftBreak = () => {
+                if (!shiftBreakList || !shiftBreakTemplate || shiftBreakList.children.length >= 10) return;
+                const fragment = shiftBreakTemplate.content.cloneNode(true);
+                shiftBreakList.appendChild(fragment);
+                refreshShiftBreaks();
+                shiftBreakList.lastElementChild?.querySelector('input[type="time"]')?.focus();
+            };
+
+            addShiftBreakButton?.addEventListener('click', addShiftBreak);
+            shiftBreakList?.addEventListener('input', refreshShiftBreaks);
+            shiftBreakList?.addEventListener('change', refreshShiftBreaks);
+            shiftBreakList?.addEventListener('click', (event) => {
+                const removeButton = event.target.closest('[data-remove-break]');
+                if (!removeButton) return;
+                removeButton.closest('[data-break-row]')?.remove();
+                refreshShiftBreaks();
+            });
+            refreshShiftBreaks();
 
             const updateDiaryContext = () => {
                 if (!createShiftDiaryContext || !createShiftDiaryContextBody) return;
@@ -3727,8 +3900,8 @@
                 });
                 updateCreateFilters();
             }
-            if (startTimeInput) startTimeInput.addEventListener('change', updateDiaryContext);
-            if (endTimeInput) endTimeInput.addEventListener('change', updateDiaryContext);
+            if (startTimeInput) startTimeInput.addEventListener('change', () => { updateDiaryContext(); refreshShiftBreaks(); });
+            if (endTimeInput) endTimeInput.addEventListener('change', () => { updateDiaryContext(); refreshShiftBreaks(); });
             updateDiaryContext();
 
             document.querySelectorAll('.quick-add-shift').forEach((button) => {
@@ -3819,20 +3992,6 @@
                 });
             }
 
-            if (bulkOpenShift) {
-                bulkOpenShift.addEventListener('click', function() {
-                    const count = buildSelectedShiftPayloads().filter((payload) => payload.employee_id !== '').length;
-
-                    if (count === 0) {
-                        return;
-                    }
-
-                    if (window.confirm('Convert ' + count + ' selected shift' + (count === 1 ? '' : 's') + ' to open shifts?')) {
-                        submitBulkOpen();
-                    }
-                });
-            }
-
             updateBulkSelectionState();
 
             const refreshRosterCompanyCoverage = (row, hasCompanyScope) => {
@@ -3863,25 +4022,21 @@
                 // Company filters match the employee's company even when that employee
                 // has no shifts yet. Role, work location, and assignment status are the
                 // filters that genuinely require a matching shift card.
-                const hasShiftFilter = roleId || workLocationId || status === 'open' || status === 'assigned';
+                const hasShiftFilter = roleId || workLocationId || status === 'assigned';
 
                 document.querySelectorAll('[data-roster-search]').forEach((row) => {
                     refreshRosterCompanyCoverage(row, hasCompanyScope);
                     const key = row.dataset.rosterKey || '';
                     const haystack = row.dataset.rosterSearch || '';
-                    const rowIsOpen = row.dataset.rosterOpen === '1';
                     const rowHasShifts = row.dataset.rosterHasShifts === '1';
                     let matchingCards = 0;
 
                     document.querySelectorAll('.shift-card[data-roster-key="' + key + '"]').forEach((card) => {
-                        const cardIsOpen = !card.dataset.employeeId || card.dataset.employeeId === '0';
                         const matchesRole = !roleId || card.dataset.roleId === roleId;
                         const matchesCompany = (!companyId || card.dataset.companyId === companyId)
                             && (selectedCompanyIds.size === 0 || selectedCompanyIds.has(card.dataset.companyId));
                         const matchesWorkLocation = !workLocationId || card.dataset.workLocationId === workLocationId;
-                        const matchesStatus = !status
-                            || (status === 'open' && cardIsOpen)
-                            || (status === 'assigned' && !cardIsOpen);
+                        const matchesStatus = !status || status === 'assigned';
                         const cardMatches = matchesRole && matchesCompany && matchesWorkLocation && matchesStatus && status !== 'empty';
 
                         if (cardMatches) {
@@ -3892,7 +4047,7 @@
                     });
 
                     const matchesSearch = !query || haystack.includes(query);
-                    const matchesEmpty = status === 'empty' ? !rowIsOpen && !rowHasShifts : true;
+                    const matchesEmpty = status === 'empty' ? !rowHasShifts : true;
                     const rowCompanyIds = (row.dataset.rosterCompanyIds || row.dataset.rosterCompanyId || '').split(',').filter(Boolean);
                     const rowCoversAllCompanies = row.dataset.rosterAllCompanies === '1';
                     const rowMatchesCompany = !companyId || rowCoversAllCompanies || rowCompanyIds.includes(companyId);
@@ -3964,8 +4119,13 @@
             }
 
             const parseScopeDate = (value) => {
-                if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return null;
-                const date = new Date(value + 'T12:00:00');
+                const isoMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || '');
+                const displayMatch = /^(\d{2})-(\d{2})-(\d{4})$/.exec(value || '');
+                const parts = isoMatch
+                    ? { year: isoMatch[1], month: isoMatch[2], day: isoMatch[3] }
+                    : (displayMatch ? { year: displayMatch[3], month: displayMatch[2], day: displayMatch[1] } : null);
+                if (!parts) return null;
+                const date = new Date(parts.year + '-' + parts.month + '-' + parts.day + 'T12:00:00');
                 return Number.isNaN(date.getTime()) ? null : date;
             };
             const formatScopeDateValue = (date) => date.getFullYear() + '-'
@@ -4008,8 +4168,33 @@
                 }
             };
 
+            const scopeDatePickerOptions = {
+                format: 'DD-MM-YYYY',
+                extraFormats: ['YYYY-MM-DD'],
+                useCurrent: false,
+                allowInputToggle: true,
+                showTodayButton: true,
+                showClose: true,
+                icons: {
+                    time: 'far fa-clock',
+                    date: 'far fa-calendar-alt',
+                    up: 'fas fa-chevron-up',
+                    down: 'fas fa-chevron-down',
+                    previous: 'fas fa-chevron-left',
+                    next: 'fas fa-chevron-right',
+                    today: 'fas fa-crosshairs',
+                    clear: 'far fa-trash-alt',
+                    close: 'fas fa-times'
+                }
+            };
+
+            if (window.jQuery?.fn?.datetimepicker) {
+                window.jQuery('#scheduleScopeStartPicker, #scheduleScopeEndPicker').datetimepicker(scopeDatePickerOptions);
+            }
+
             [scheduleScopeStart, scheduleScopeEnd].forEach((control) => {
-                if (control) control.addEventListener('change', refreshScheduleScopePreview);
+                if (!control) return;
+                control.addEventListener('change', refreshScheduleScopePreview);
             });
             if (scopeSelectAllCompanies) {
                 scopeSelectAllCompanies.addEventListener('click', function() {
@@ -4059,22 +4244,8 @@
                 window.sessionStorage.setItem('deputyScheduleCompanies', JSON.stringify(Array.from(selectedCompanyIds)));
 
                 if (companySelect) {
-                    const hasCompanyScope = selectedCompanyIds.size > 0 && selectedCompanyIds.size < deputyLocationOptions.length;
-                    Array.from(companySelect.options).forEach((option) => {
-                        if (!option.value) return;
-                        const matches = !hasCompanyScope || selectedCompanyIds.has(option.value);
-                        option.disabled = !matches;
-                        option.hidden = !matches;
-                    });
-
-                    const currentCompany = companySelect.options[companySelect.selectedIndex];
-                    if (currentCompany?.value && currentCompany.disabled) {
-                        companySelect.value = '';
-                    }
-
-                    if (hasCompanyScope && selectedCompanyIds.size === 1) {
-                        companySelect.value = Array.from(selectedCompanyIds)[0];
-                    }
+                    const eligibleCompanyIds = filterCreateCompanyOptions();
+                    if (!companySelect.value && eligibleCompanyIds.length === 1) companySelect.value = eligibleCompanyIds[0];
 
                     syncCompanyDependencies();
                 }
@@ -4441,7 +4612,6 @@
                         employeeId: row.dataset.employeeId || '',
                         companyId: row.dataset.rosterCompanyId || '',
                         workLocationId: row.dataset.rosterWorkLocationId || '',
-                        isOpen: row.dataset.rosterOpen === '1',
                     };
 
                     row.classList.add('is-drag-source');
@@ -4449,7 +4619,7 @@
 
                     if (event.dataTransfer) {
                         event.dataTransfer.effectAllowed = 'copy';
-                        event.dataTransfer.setData('text/plain', dragState.payload.employeeId || 'open-shift');
+                        event.dataTransfer.setData('text/plain', dragState.payload.employeeId);
                     }
                 });
 

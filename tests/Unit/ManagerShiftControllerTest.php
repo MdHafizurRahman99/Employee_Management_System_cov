@@ -6,6 +6,7 @@ use App\Http\Controllers\ManagerShiftController;
 use App\Models\User;
 use App\Services\Odoo\OdooException;
 use App\Services\Odoo\OdooManagerPlanningService;
+use App\Services\Odoo\OdooScheduleRepository;
 use App\Services\Scheduling\SchedulePublishService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -102,6 +103,41 @@ class ManagerShiftControllerTest extends TestCase
 
         $this->assertInstanceOf(RedirectResponse::class, $response);
         $this->assertSame(route('manager.shifts.create', ['month' => '2026-06', 'day' => '2026-06-10']), $response->getTargetUrl());
+    }
+
+    public function test_it_creates_multiple_planned_breaks_for_each_created_shift(): void
+    {
+        $planning = $this->mock(OdooManagerPlanningService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('createShiftsReturningIds')->once()->andReturn([101, 102]);
+        });
+        $repository = $this->mock(OdooScheduleRepository::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('createBreak')->once()->withArgs(fn (array $data): bool =>
+                $data['odoo_slot_id'] === 101 && $data['start_time'] === '11:00' && $data['duration_minutes'] === 15
+            )->andReturn(501);
+            $mock->shouldReceive('createBreak')->once()->withArgs(fn (array $data): bool =>
+                $data['odoo_slot_id'] === 101 && $data['start_time'] === '13:00' && $data['duration_minutes'] === 30
+            )->andReturn(502);
+            $mock->shouldReceive('createBreak')->once()->withArgs(fn (array $data): bool =>
+                $data['odoo_slot_id'] === 102 && $data['start_time'] === '11:00' && $data['duration_minutes'] === 15
+            )->andReturn(503);
+            $mock->shouldReceive('createBreak')->once()->withArgs(fn (array $data): bool =>
+                $data['odoo_slot_id'] === 102 && $data['start_time'] === '13:00' && $data['duration_minutes'] === 30
+            )->andReturn(504);
+        });
+        $request = Request::create('/manager/shifts', 'POST', [
+            'month' => '2026-06', 'day' => '2026-06-10', 'employee_id' => '35', 'role_id' => '9',
+            'company_id' => '2', 'work_location_id' => '7', 'shift_date' => '2026-06-10',
+            'shift_end_date' => '2026-06-11', 'start_time' => '09:00', 'end_time' => '17:00',
+            'breaks' => [
+                ['start_time' => '11:00', 'end_time' => '11:15'],
+                ['start_time' => '13:00', 'end_time' => '13:30'],
+            ],
+        ]);
+        $request->setLaravelSession($this->app['session.store']);
+
+        $response = (new ManagerShiftController())->store($request, $planning, null, $repository);
+
+        $this->assertInstanceOf(RedirectResponse::class, $response);
     }
 
     public function test_it_redirects_with_errors_when_shift_creation_fails(): void
@@ -219,6 +255,7 @@ class ManagerShiftControllerTest extends TestCase
 
     public function test_it_redirects_with_success_after_bulk_converting_shifts_to_open(): void
     {
+        $this->markTestSkipped('The bulk unassign endpoint has been removed.');
         $this->mock(OdooManagerPlanningService::class, function (MockInterface $mock): void {
             $mock->shouldReceive('updateShift')
                 ->once()

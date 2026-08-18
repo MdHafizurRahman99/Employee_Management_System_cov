@@ -288,7 +288,6 @@
                     @else
                         <span class="d-block small text-muted mb-2">Connect this account to an Odoo employee to use the diary.</span>
                     @endif
-                    <div><a href="{{ route('employee.open-shifts.index') }}" class="btn btn-outline-success btn-sm"><i class="fas fa-hand-paper mr-1"></i>Find Open Shifts</a></div>
                 </div>
             </div>
         </div>

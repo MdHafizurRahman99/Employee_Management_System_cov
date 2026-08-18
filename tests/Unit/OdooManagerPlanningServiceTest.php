@@ -19,6 +19,17 @@ class OdooManagerPlanningServiceTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_it_formats_availability_ranges_as_am_pm_without_reformatting_existing_am_pm_labels(): void
+    {
+        $service = new OdooManagerPlanningService(Mockery::mock(OdooServiceAccount::class));
+        $method = new \ReflectionMethod($service, 'formatAvailabilityTimeLabel');
+        $method->setAccessible(true);
+
+        $this->assertSame('02:17 PM to 02:30 PM', $method->invoke($service, '14:17 to 14:30'));
+        $this->assertSame('04:15 PM to 06:15 PM', $method->invoke($service, '16:15 to 18:15'));
+        $this->assertSame('2:17 PM to 2:30 PM', $method->invoke($service, '2:17 PM to 2:30 PM'));
+    }
+
     public function test_hidden_open_shifts_do_not_inflate_team_roster_day_totals(): void
     {
         $service = new OdooManagerPlanningService(Mockery::mock(OdooServiceAccount::class));
@@ -61,7 +72,7 @@ class OdooManagerPlanningServiceTest extends TestCase
         $this->assertSame('12h', $thursday['hours_label']);
         $this->assertSame(1, $roster['summary']['shift_count']);
         $this->assertSame('12h', $roster['summary']['scheduled_hours']);
-        $this->assertSame(1, $roster['summary']['open_shifts']);
+        $this->assertArrayNotHasKey('open_shifts', $roster['summary']);
     }
 
     public function test_it_builds_shift_creation_page_data_from_odoo(): void
@@ -507,6 +518,7 @@ class OdooManagerPlanningServiceTest extends TestCase
 
     public function test_it_creates_an_open_shift_without_an_employee(): void
     {
+        $this->markTestSkipped('Unassigned shift creation has been removed.');
         $serviceAccount = Mockery::mock(OdooServiceAccount::class);
         $this->allowWorkLocations($serviceAccount);
 
@@ -593,6 +605,7 @@ class OdooManagerPlanningServiceTest extends TestCase
 
     public function test_company_location_fallback_allows_new_and_copied_shifts_without_a_work_location(): void
     {
+        $this->markTestSkipped('This legacy test creates unassigned shifts, which are no longer supported.');
         $serviceAccount = Mockery::mock(OdooServiceAccount::class);
         $serviceAccount->shouldReceive('executeKw')
             ->once()
@@ -972,6 +985,7 @@ class OdooManagerPlanningServiceTest extends TestCase
 
     public function test_it_can_turn_a_shift_into_an_open_shift(): void
     {
+        $this->markTestSkipped('Converting assigned shifts to unassigned shifts has been removed.');
         $serviceAccount = Mockery::mock(OdooServiceAccount::class);
         $this->allowWorkLocations($serviceAccount);
 

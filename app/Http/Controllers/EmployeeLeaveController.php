@@ -62,19 +62,26 @@ class EmployeeLeaveController extends Controller
             'source_shift_company' => ['nullable', 'string', 'max:120'],
             'source_shift_start_at' => ['nullable', 'date_format:Y-m-d H:i:s'],
             'source_shift_end_at' => ['nullable', 'date_format:Y-m-d H:i:s'],
+            'return_to' => ['nullable', 'in:team_calendar'],
+            'calendar_month' => ['nullable', 'date_format:Y-m'],
         ]);
+
+        $returnRoute = ($validated['return_to'] ?? null) === 'team_calendar'
+            ? ['team-calendar.index', ['month' => $validated['calendar_month'] ?? substr($validated['start_date'], 0, 7)]]
+            : ['employee.leave.index', []];
+        unset($validated['return_to'], $validated['calendar_month']);
 
         try {
             $leaveService->submitLeaveRequest($request->user(), $validated);
         } catch (OdooException $exception) {
             return redirect()
-                ->route('employee.leave.index')
+                ->route($returnRoute[0], $returnRoute[1])
                 ->withErrors(['leave_request' => $exception->getMessage()])
                 ->withInput();
         }
 
         return redirect()
-            ->route('employee.leave.index')
+            ->route($returnRoute[0], $returnRoute[1])
             ->with('success', 'Your leave request has been submitted successfully.');
     }
 
