@@ -61,6 +61,7 @@ class TeamCalendarControllerTest extends TestCase
             ]);
         });
         $this->mock(OdooScheduleRepository::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('teamCalendarEvents')->once()->andReturn(collect());
             $mock->shouldReceive('dayEntries')->once()->andReturn(collect([
                 new OdooScheduleRecord([
                     'id' => 41,

@@ -13,7 +13,7 @@ class TeamCalendarEventControllerTest extends TestCase
     public function test_it_stores_a_timed_team_event_and_returns_to_its_month(): void
     {
         $repository = $this->mock(OdooScheduleRepository::class, function (MockInterface $mock): void {
-            $mock->shouldReceive('createDay')->once()->with([
+            $mock->shouldReceive('createTeamCalendarEvent')->once()->with([
                 'company_id' => 8,
                 'schedule_area_id' => null,
                 'schedule_date' => '2026-09-14',
@@ -42,7 +42,7 @@ class TeamCalendarEventControllerTest extends TestCase
     public function test_it_updates_an_existing_team_event(): void
     {
         $repository = $this->mock(OdooScheduleRepository::class, function (MockInterface $mock): void {
-            $mock->shouldReceive('updateDay')->once()->with(41, \Mockery::on(
+            $mock->shouldReceive('updateTeamCalendarEvent')->once()->with(41, \Mockery::on(
                 fn (array $data): bool => $data['holiday_name'] === 'Updated review'
                     && $data['blocked_start'] === null
                     && $data['blocked_end'] === null
@@ -62,7 +62,7 @@ class TeamCalendarEventControllerTest extends TestCase
     public function test_it_deletes_an_event_and_keeps_the_selected_month(): void
     {
         $repository = $this->mock(OdooScheduleRepository::class, function (MockInterface $mock): void {
-            $mock->shouldReceive('deleteDay')->once()->with(41);
+            $mock->shouldReceive('deleteTeamCalendarEvent')->once()->with(41);
         });
         $request = Request::create('/team-calendar/events/41/delete', 'POST', ['calendar_month' => '2026-09']);
 

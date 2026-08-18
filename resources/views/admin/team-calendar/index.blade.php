@@ -136,4 +136,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const leaveStartTime=document.getElementById('teamLeaveStartTime'),leaveEndTime=document.getElementById('teamLeaveEndTime');if(leaveStartTime)leaveStartTime.value=decimalHourToTime(document.getElementById('teamLeaveStartHour').value);if(leaveEndTime)leaveEndTime.value=decimalHourToTime(document.getElementById('teamLeaveEndHour').value);selectDate(selectedDate);applyFilters();rangeRender();setView(view);renderLeaveTypeHelp();@if($errors->any() && old('return_to') === 'team_calendar') openLeave(); @endif @if(old('event_form') === '1') openEditor({id:@json(old('calendar_event_id')),title:@json(old('title')),date:@json(old('schedule_date')),company_id:@json(old('company_id')),start_time:@json(old('start_time')),end_time:@json(old('end_time')),detail:@json(old('description'))}); @endif const success=document.querySelector('[data-calendar-success],[data-event-success]');if(success){document.getElementById('calendarSuccessTitle').textContent=success.hasAttribute('data-calendar-success')?'Leave request submitted':'Calendar updated';document.getElementById('calendarSuccessCopy').textContent=success.textContent.trim();success.hidden=true;$('#calendarSuccessModal').modal('show');}
 });
 </script>
+@if(old('event_form') === '1')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('calendarEventForm');
+    if (!form) return;
+    let input = form.querySelector('[name="event_source"]');
+    if (!input) { input = document.createElement('input'); input.type = 'hidden'; input.name = 'event_source'; form.appendChild(input); }
+    input.value = @json(old('event_source', 'calendar_event'));
+});
+</script>
+@endif
 @endsection

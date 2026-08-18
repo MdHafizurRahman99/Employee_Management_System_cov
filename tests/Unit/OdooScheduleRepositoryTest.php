@@ -45,4 +45,29 @@ class OdooScheduleRepositoryTest extends TestCase
         $this->assertSame(2,$loaded['company_id']);
         Carbon::setTestNow();
     }
+
+    public function test_it_creates_multiple_team_calendar_events_on_the_same_day(): void
+    {
+        $odoo=Mockery::mock(OdooServiceAccount::class);
+        $odoo->shouldReceive('executeKw')->once()->with('calendar.event','fields_get',[],['attributes'=>['type']])->andReturn([
+            'name'=>['type'=>'char'],'start'=>['type'=>'datetime'],'stop'=>['type'=>'datetime'],
+            'allday'=>['type'=>'boolean'],'description'=>['type'=>'html'],'notes'=>['type'=>'html'],
+        ]);
+        $odoo->shouldReceive('executeKw')->once()->with('calendar.event','create',Mockery::on(fn(array $args):bool=>
+            ($args[0]['name']??null)==='Morning briefing'
+            && str_contains((string)($args[0]['notes']??''),'EMS_TEAM_CALENDAR:')
+        ))->andReturn(101);
+        $odoo->shouldReceive('executeKw')->once()->with('calendar.event','create',Mockery::on(fn(array $args):bool=>
+            ($args[0]['name']??null)==='Afternoon review'
+            && str_contains((string)($args[0]['notes']??''),'EMS_TEAM_CALENDAR:')
+        ))->andReturn(102);
+        $repository=new OdooScheduleRepository($odoo);
+        $base=['company_id'=>2,'schedule_date'=>'2026-08-18','schedule_area_id'=>null,'note'=>null];
+
+        $first=$repository->createTeamCalendarEvent($base+['holiday_name'=>'Morning briefing','blocked_start'=>'09:00','blocked_end'=>'10:00']);
+        $second=$repository->createTeamCalendarEvent($base+['holiday_name'=>'Afternoon review','blocked_start'=>'15:00','blocked_end'=>'16:00']);
+
+        $this->assertSame(101,$first);
+        $this->assertSame(102,$second);
+    }
 }
