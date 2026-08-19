@@ -19,8 +19,8 @@ class TeamCalendarController extends Controller
         ?OdooScheduleRepository $scheduleRepository = null
     ): View {
         $month = $this->resolveMonth($request->query('month'));
-        $gridStart = $month->copy()->startOfMonth()->startOfWeek(Carbon::SUNDAY);
-        $gridEnd = $month->copy()->endOfMonth()->endOfWeek(Carbon::SATURDAY);
+        $gridStart = $month->copy()->startOfMonth()->startOfWeek(Carbon::MONDAY);
+        $gridEnd = $month->copy()->endOfMonth()->endOfWeek(Carbon::SUNDAY);
         $selectedCalendarDate = $this->resolveCalendarDate($request->query('day'), $month);
         $calendarData = ['employees' => [], 'shifts' => [], 'approved_leave' => [], 'birthdays' => [], 'events' => []];
         $leaveTypes = [];
