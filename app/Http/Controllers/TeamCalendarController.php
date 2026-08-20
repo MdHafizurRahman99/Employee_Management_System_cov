@@ -61,6 +61,10 @@ class TeamCalendarController extends Controller
         }
 
         $eventsByDate = $this->buildEventsByDate($calendarData, (int) ($request->user()?->odoo_employee_id ?? 0));
+        $calendarEventsByDate = collect($eventsByDate)
+            ->map(fn (array $events): array => collect($events)->where('type', 'shift')->values()->all())
+            ->filter(fn (array $events): bool => $events !== [])
+            ->all();
         $weeks = [];
         $cursor = $gridStart->copy();
         while ($cursor->lte($gridEnd)) {
@@ -72,7 +76,7 @@ class TeamCalendarController extends Controller
                     'date_value' => $dateValue,
                     'is_current_month' => $cursor->isSameMonth($month),
                     'is_today' => $cursor->isToday(),
-                    'events' => $eventsByDate[$dateValue] ?? [],
+                    'events' => $calendarEventsByDate[$dateValue] ?? [],
                 ];
                 $cursor->addDay();
             }
@@ -96,7 +100,7 @@ class TeamCalendarController extends Controller
             ->filter(fn (array $range): bool => Carbon::parse($range['end_date'])->endOfDay()->gte($upcomingFrom)
                 && Carbon::parse($range['date'])->startOfDay()->lte($gridEnd))
             ->map(fn (array $range): array => $this->addLeaveTiming($range, $upcomingFrom))
-            ->sortBy('date')->take(4)->values()->all();
+            ->sortBy('date')->values()->all();
         $upcomingMoments = $allEvents
             ->filter(fn (array $event): bool => in_array($event['type'], ['birthday', 'event'], true)
                 && Carbon::parse($event['date'])->betweenIncluded($gridStart, $gridEnd))
@@ -107,7 +111,7 @@ class TeamCalendarController extends Controller
         $myUpcomingShifts = $allEvents
             ->where('type', 'shift')->where('is_mine', true)
             ->filter(fn (array $event): bool => Carbon::parse($event['date'])->gte($upcomingFrom))
-            ->sortBy('date')->take(4)->values()->all();
+            ->sortBy('date')->values()->all();
         $upcomingLeaveRequests = collect($leaveRequests)
             ->filter(fn (array $request): bool => filled($request['end_date'] ?? null)
                 && Carbon::parse($request['end_date'])->endOfDay()->gte(now()))
@@ -125,6 +129,7 @@ class TeamCalendarController extends Controller
             'nextMonth' => $month->copy()->addMonthNoOverflow(),
             'weeks' => $weeks,
             'eventsByDate' => $eventsByDate,
+            'calendarEventsByDate' => $calendarEventsByDate,
             'employees' => $employees,
             'companies' => $companies,
             'leaveTypes' => $leaveTypes,
@@ -136,7 +141,7 @@ class TeamCalendarController extends Controller
             'myUpcomingShifts' => $myUpcomingShifts,
             'upcomingLeaveRequests' => $upcomingLeaveRequests,
             'leaveRequestSummary' => $leaveRequestSummary,
-            'canManageCalendar' => (bool) $request->user()?->can('access-manager-tools'),
+            'canManageCalendar' => (bool) $request->user()?->isManagerLike(),
             'summary' => [
                 'shifts' => $monthEvents->where('type', 'shift')->count(),
                 'people_on_leave' => $monthEvents->where('type', 'leave')->pluck('employee_id')->unique()->count(),
@@ -154,7 +159,7 @@ class TeamCalendarController extends Controller
         $employeesById = collect($data['employees'] ?? [])->keyBy(fn (array $employee): int => (int) ($employee['id'] ?? 0));
 
         foreach ($data['shifts'] ?? [] as $shift) {
-            if (($shift['publish_state'] ?? 'published') === 'unpublished') continue;
+            if (($shift['publish_state'] ?? 'unpublished') !== 'published') continue;
             $date = (string) ($shift['shift_date_value'] ?? $shift['date_value'] ?? '');
             if ($date === '') continue;
             $events[$date][] = [

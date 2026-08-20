@@ -92,7 +92,7 @@ class TeamCalendarControllerTest extends TestCase
                 ]),
             ]));
         });
-        $user = new User(['name' => 'Alex Morgan', 'odoo_employee_id' => 35]);
+        $user = new User(['name' => 'Alex Morgan', 'odoo_employee_id' => 35, 'auth_source' => 'odoo', 'role' => 'employee']);
         $request = Request::create('/team-calendar', 'GET', ['month' => '2026-06', 'day' => '2026-06-18']);
         $request->setUserResolver(fn (): User => $user);
 
@@ -108,6 +108,8 @@ class TeamCalendarControllerTest extends TestCase
         $this->assertSame('admin.team-calendar.index', $view->getName());
         $this->assertSame('2026-06-18', $data['selectedCalendarDate']->toDateString());
         $this->assertCount(2, $data['eventsByDate']['2026-06-12'] ?? []);
+        $this->assertCount(1, $data['calendarEventsByDate']['2026-06-12'] ?? []);
+        $this->assertSame('shift', $data['calendarEventsByDate']['2026-06-12'][0]['type']);
         $this->assertSame(1, $data['summary']['shifts']);
         $this->assertSame(1, $data['summary']['people_on_leave']);
         $this->assertSame('2026-06-12', collect($data['eventsByDate']['2026-06-12'])->firstWhere('type', 'shift')['date']);
@@ -132,5 +134,55 @@ class TeamCalendarControllerTest extends TestCase
         $this->assertStringNotContainsString('Private Leave Type', json_encode($data['eventsByDate']));
         $this->assertCount(1, $data['leaveTypes']);
         $this->assertFalse($data['canManageCalendar']);
+    }
+
+    public function test_it_keeps_large_sidebar_collections_complete_while_calendar_data_is_shift_only(): void
+    {
+        Carbon::setTestNow('2026-06-01 09:00:00');
+        $employees = collect(range(1, 12))->map(fn (int $id): array => [
+            'id' => $id, 'name' => 'Employee '.$id, 'company_id' => 2, 'company' => 'Clinic',
+        ])->all();
+        $shifts = collect(range(1, 12))->map(fn (int $offset): array => [
+            'employee_id' => 1, 'employee' => 'Employee 1', 'company_id' => 2, 'company' => 'Clinic',
+            'role' => 'Reception', 'work_location' => 'Front Office',
+            'shift_date_value' => Carbon::parse('2026-06-08')->addDays($offset)->toDateString(),
+            'time_label' => '09:00 AM - 05:00 PM', 'publish_state' => 'published',
+        ])->all();
+        $leave = collect($employees)->map(fn (array $employee): array => [
+            'employee_id' => $employee['id'], 'employee' => $employee['name'], 'date_value' => '2026-06-22',
+            'time_label' => 'Full day', 'kind' => 'leave-approved',
+        ])->all();
+        $birthdays = collect($employees)->map(fn (array $employee): array => [
+            'employee_id' => $employee['id'], 'employee' => $employee['name'], 'company_id' => 2,
+            'company' => 'Clinic', 'date_value' => '2026-06-25',
+        ])->all();
+        $this->mock(OdooManagerPlanningService::class, function (MockInterface $mock) use ($employees, $shifts, $leave, $birthdays): void {
+            $mock->shouldReceive('getTeamCalendarDataForRange')->once()->andReturn([
+                'employees' => $employees, 'shifts' => $shifts, 'approved_leave' => $leave, 'birthdays' => $birthdays,
+            ]);
+        });
+        $this->mock(OdooLeaveService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('getLeaveRequestPageData')->once()->andReturn(['leaveTypes' => [], 'leaveRequests' => []]);
+        });
+        $this->mock(OdooScheduleRepository::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('teamCalendarEvents')->once()->andReturn(collect());
+            $mock->shouldReceive('dayEntries')->once()->andReturn(collect());
+        });
+        $user = new User(['name' => 'Employee 1', 'odoo_employee_id' => 1, 'auth_source' => 'odoo', 'role' => 'employee']);
+        $request = Request::create('/team-calendar', 'GET', ['month' => '2026-06']);
+        $request->setUserResolver(fn (): User => $user);
+
+        $view = (new TeamCalendarController())->index(
+            $request,
+            app(OdooManagerPlanningService::class),
+            app(OdooLeaveService::class),
+            app(OdooScheduleRepository::class)
+        );
+        $data = $view->getData();
+
+        $this->assertCount(12, $data['teamOnLeave']);
+        $this->assertCount(12, $data['upcomingMoments']);
+        $this->assertCount(12, $data['myUpcomingShifts']);
+        $this->assertTrue(collect($data['calendarEventsByDate'])->flatten(1)->every(fn (array $event): bool => $event['type'] === 'shift'));
     }
 }
